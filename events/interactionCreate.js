@@ -13,6 +13,7 @@ const path = require('path');
 const CATEGORIA_ID = '1490905371601145939';
 const STAFF_ROLE_ID = '1490946877175369891';
 const CANAL_AVALIACOES_ID = '1490951429962203267';
+const CANAL_POSTAGEM_ID = '1490955877321146458';
 
 async function buscarTodasMensagens(channel) {
     let todasMensagens = [];
@@ -167,10 +168,17 @@ module.exports = {
     name: 'interactionCreate',
     async execute(interaction) {
         if (!interaction.isButton()) return;
-        const fs = require('fs');
-        const postSessions = require('../post_sessions.json');
 
+        const guild = interaction.guild;
+        const user = interaction.user;
+
+        // =========================
+        // SISTEMA DE ABRIR POSTAGEM
+        // =========================
         if (interaction.customId === 'abrir_postagem') {
+            delete require.cache[require.resolve('../post_sessions.json')];
+            const postSessions = require('../post_sessions.json');
+
             postSessions[interaction.user.id] = {
                 etapa: 'titulo'
             };
@@ -194,9 +202,126 @@ module.exports = {
                 });
             }
         }
-        const guild = interaction.guild;
-        const user = interaction.user;
 
+        // =========================
+        // SISTEMA DE APROVAÇÃO DE POSTAGEM
+        // =========================
+        if (interaction.customId.startsWith('aprovar_post_')) {
+            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+                return interaction.reply({
+                    content: '❌ Apenas a staff pode aprovar postagens.',
+                    ephemeral: true
+                });
+            }
+
+            delete require.cache[require.resolve('../pending_posts.json')];
+            const pendingPosts = require('../pending_posts.json');
+
+            const postId = interaction.customId.replace('aprovar_post_', '');
+            const post = pendingPosts[postId];
+
+            if (!post) {
+                return interaction.reply({
+                    content: '❌ Esta postagem não foi encontrada ou já foi processada.',
+                    ephemeral: true
+                });
+            }
+
+            try {
+                const canalPostagem = await interaction.client.channels.fetch(CANAL_POSTAGEM_ID);
+                const usuario = await interaction.client.users.fetch(post.userId);
+
+                const embed = new EmbedBuilder()
+                    .setAuthor({
+                        name: usuario.username,
+                        iconURL: usuario.displayAvatarURL({ dynamic: true })
+                    })
+                    .setTitle(post.titulo)
+                    .setDescription('✨ **Nova postagem enviada pela comunidade**')
+                    .setImage(post.imagem)
+                    .setColor('Purple')
+                    .setFooter({ text: 'Postagem da comunidade' })
+                    .setTimestamp();
+
+                await canalPostagem.send({ embeds: [embed] });
+
+                await usuario.send(
+                    '✅ Sua postagem foi **aprovada** pela staff e já foi publicada no servidor.'
+                ).catch(() => {});
+
+                delete pendingPosts[postId];
+                fs.writeFileSync('./pending_posts.json', JSON.stringify(pendingPosts, null, 2));
+
+                const embedResposta = new EmbedBuilder()
+                    .setTitle('✅ Postagem aprovada')
+                    .setDescription(`A postagem de <@${post.userId}> foi aprovada por ${interaction.user}.`)
+                    .setColor('Green');
+
+                return interaction.update({
+                    embeds: [embedResposta],
+                    components: []
+                });
+            } catch (error) {
+                console.error('Erro ao aprovar postagem:', error);
+                return interaction.reply({
+                    content: '❌ Ocorreu um erro ao aprovar a postagem.',
+                    ephemeral: true
+                });
+            }
+        }
+
+        if (interaction.customId.startsWith('recusar_post_')) {
+            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+                return interaction.reply({
+                    content: '❌ Apenas a staff pode recusar postagens.',
+                    ephemeral: true
+                });
+            }
+
+            delete require.cache[require.resolve('../pending_posts.json')];
+            const pendingPosts = require('../pending_posts.json');
+
+            const postId = interaction.customId.replace('recusar_post_', '');
+            const post = pendingPosts[postId];
+
+            if (!post) {
+                return interaction.reply({
+                    content: '❌ Esta postagem não foi encontrada ou já foi processada.',
+                    ephemeral: true
+                });
+            }
+
+            try {
+                const usuario = await interaction.client.users.fetch(post.userId);
+
+                await usuario.send(
+                    '❌ Sua postagem foi **recusada** pela staff. Você pode tentar enviar outra postagem depois.'
+                ).catch(() => {});
+
+                delete pendingPosts[postId];
+                fs.writeFileSync('./pending_posts.json', JSON.stringify(pendingPosts, null, 2));
+
+                const embedResposta = new EmbedBuilder()
+                    .setTitle('❌ Postagem recusada')
+                    .setDescription(`A postagem de <@${post.userId}> foi recusada por ${interaction.user}.`)
+                    .setColor('Red');
+
+                return interaction.update({
+                    embeds: [embedResposta],
+                    components: []
+                });
+            } catch (error) {
+                console.error('Erro ao recusar postagem:', error);
+                return interaction.reply({
+                    content: '❌ Ocorreu um erro ao recusar a postagem.',
+                    ephemeral: true
+                });
+            }
+        }
+
+        // =========================
+        // SISTEMA DE TICKET - ABRIR
+        // =========================
         if (
             interaction.customId === 'abrir_ticket_suporte' ||
             interaction.customId === 'abrir_ticket_parceria'
@@ -298,6 +423,9 @@ module.exports = {
             }
         }
 
+        // =========================
+        // SISTEMA DE TICKET - ASSUMIR
+        // =========================
         if (interaction.customId.startsWith('assumir_ticket_')) {
             if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
                 return interaction.reply({
@@ -353,6 +481,9 @@ module.exports = {
             }
         }
 
+        // =========================
+        // SISTEMA DE TICKET - FECHAR
+        // =========================
         if (interaction.customId.startsWith('fechar_ticket_')) {
             if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
                 return interaction.reply({
@@ -416,6 +547,9 @@ module.exports = {
             }
         }
 
+        // =========================
+        // SISTEMA DE AVALIAÇÃO
+        // =========================
         if (interaction.customId.startsWith('avaliar_')) {
             const partes = interaction.customId.split('_');
             const nota = partes[1];
