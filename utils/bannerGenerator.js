@@ -1,4 +1,10 @@
-const { createCanvas, loadImage } = require("canvas");
+let canvasLib = null;
+
+try {
+  canvasLib = require("canvas");
+} catch (error) {
+  console.warn("[mensagem] módulo 'canvas' não encontrado. O modo imagem será desativado.");
+}
 
 function roundRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
@@ -41,15 +47,26 @@ function clipText(text, maxChars) {
 }
 
 async function safeLoadImage(url) {
-  if (!url) return null;
+  if (!canvasLib || !url) return null;
+
   try {
-    return await loadImage(url);
+    return await canvasLib.loadImage(url);
   } catch {
     return null;
   }
 }
 
+function isCanvasAvailable() {
+  return !!canvasLib;
+}
+
 async function gerarBannerMensagem(data) {
+  if (!canvasLib) {
+    return null;
+  }
+
+  const { createCanvas } = canvasLib;
+
   const width = 1280;
   const height = 720;
   const canvas = createCanvas(width, height);
@@ -162,5 +179,6 @@ async function gerarBannerMensagem(data) {
 }
 
 module.exports = {
-  gerarBannerMensagem
+  gerarBannerMensagem,
+  isCanvasAvailable
 };
