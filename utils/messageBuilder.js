@@ -11,47 +11,83 @@ const {
 const sessionsPath = path.join(__dirname, '../message_builder_sessions.json');
 
 const TEMPLATES = {
-    aviso: {
-        label: '📢 Aviso elegante',
+    premium_announcement: {
+        label: '🚀 Anúncio Premium',
         color: '#5865F2',
-        title: '📢 Aviso importante',
-        description: 'Escreva aqui a mensagem principal do seu aviso.',
-        footer: 'Sistema de avisos'
+        title: 'Grande anúncio para a comunidade',
+        subtitle: 'Confira as novidades e informações mais importantes abaixo.',
+        description:
+            'Este espaço é ideal para apresentar uma atualização importante, lançamento, comunicado ou convite para os membros.',
+        highlightTitle: '✨ Destaque',
+        highlightText: 'Use este bloco para chamar atenção para a informação principal.',
+        cta: 'Fique atento às próximas novidades.',
+        footer: 'Comunicado oficial',
+        authorName: 'Equipe oficial'
     },
-    anuncio: {
-        label: '🚀 Anúncio premium',
-        color: '#57F287',
-        title: '🚀 Novo anúncio',
-        description: 'Compartilhe aqui sua novidade com o servidor.',
-        footer: 'Anúncio oficial'
-    },
-    evento: {
-        label: '🎉 Evento especial',
+    elegant_warning: {
+        label: '📢 Aviso Elegante',
         color: '#F1C40F',
-        title: '🎉 Evento especial',
-        description: 'Descreva aqui seu evento, data, horário e informações importantes.',
-        footer: 'Evento da comunidade'
+        title: 'Aviso importante',
+        subtitle: 'Leia com atenção as informações abaixo.',
+        description:
+            'Utilize este modelo para avisos organizados, informativos e com visual limpo.',
+        highlightTitle: '📌 Importante',
+        highlightText: 'Adicione aqui o ponto principal do aviso.',
+        cta: 'Em caso de dúvidas, fale com a equipe.',
+        footer: 'Sistema de avisos',
+        authorName: 'Central de avisos'
     },
-    urgente: {
-        label: '🚨 Aviso urgente',
+    urgent_alert: {
+        label: '🚨 Alerta Urgente',
         color: '#ED4245',
-        title: '🚨 Atenção',
-        description: 'Escreva aqui um comunicado urgente para os membros.',
-        footer: 'Comunicado urgente'
+        title: 'Atenção imediata',
+        subtitle: 'Este comunicado exige atenção dos membros.',
+        description:
+            'Use este template para alertas urgentes, mudanças repentinas ou comunicados críticos.',
+        highlightTitle: '⚠️ Alerta',
+        highlightText: 'Informe aqui o motivo da urgência.',
+        cta: 'Acompanhe este canal para novas atualizações.',
+        footer: 'Comunicado urgente',
+        authorName: 'Alerta do servidor'
     },
-    atualizacao: {
-        label: '🛠️ Atualização',
-        color: '#3498DB',
-        title: '🛠️ Atualização do sistema',
-        description: 'Informe aqui as mudanças, melhorias ou correções.',
-        footer: 'Atualização oficial'
+    event_card: {
+        label: '🎉 Evento Premium',
+        color: '#57F287',
+        title: 'Evento especial',
+        subtitle: 'Participe e aproveite esta ocasião com a comunidade.',
+        description:
+            'Este template é ideal para anunciar eventos, encontros, desafios, sorteios ou atividades especiais.',
+        highlightTitle: '📅 Detalhes',
+        highlightText: 'Informe aqui data, horário e regras principais.',
+        cta: 'Não perca essa oportunidade.',
+        footer: 'Evento da comunidade',
+        authorName: 'Organização do evento'
     },
-    parceria: {
-        label: '🤝 Parceria',
+    partnership_card: {
+        label: '🤝 Parceria Oficial',
         color: '#9B59B6',
-        title: '🤝 Nova parceria',
-        description: 'Apresente aqui os detalhes da parceria.',
-        footer: 'Parceria oficial'
+        title: 'Nova parceria confirmada',
+        subtitle: 'Estamos felizes em compartilhar esta novidade.',
+        description:
+            'Use este layout para parcerias, colaborações, divulgações e anúncios conjuntos.',
+        highlightTitle: '🌟 Benefícios',
+        highlightText: 'Explique aqui o que essa parceria traz para a comunidade.',
+        cta: 'Acompanhe para mais novidades exclusivas.',
+        footer: 'Parceria oficial',
+        authorName: 'Relações e parcerias'
+    },
+    update_patch: {
+        label: '🛠️ Atualização / Patch',
+        color: '#3498DB',
+        title: 'Nova atualização disponível',
+        subtitle: 'Veja abaixo tudo o que mudou.',
+        description:
+            'Ideal para changelogs, melhorias, correções, novidades e ajustes no servidor ou sistema.',
+        highlightTitle: '📦 Resumo da atualização',
+        highlightText: 'Liste aqui as mudanças mais importantes.',
+        cta: 'Continue acompanhando as próximas atualizações.',
+        footer: 'Atualização oficial',
+        authorName: 'Sistema / Desenvolvimento'
     }
 };
 
@@ -83,21 +119,27 @@ function saveSessions(data) {
 }
 
 function criarSessao(userId, guildId, channelId) {
-    const base = TEMPLATES.aviso;
+    const base = TEMPLATES.premium_announcement;
 
     return {
         ownerId: userId,
         guildId,
         targetChannelId: channelId,
         editorMessageId: null,
-        template: 'aviso',
+        template: 'premium_announcement',
         color: base.color,
         title: base.title,
+        subtitle: base.subtitle,
         description: base.description,
+        highlightTitle: base.highlightTitle,
+        highlightText: base.highlightText,
+        cta: base.cta,
         footer: base.footer,
+        authorName: base.authorName,
         imageUrl: '',
         thumbnailUrl: '',
-        iconUrl: ''
+        iconUrl: '',
+        mentionContent: ''
     };
 }
 
@@ -108,42 +150,53 @@ function aplicarTemplate(sessao, templateKey) {
     sessao.template = templateKey;
     sessao.color = template.color;
     sessao.title = template.title;
+    sessao.subtitle = template.subtitle;
     sessao.description = template.description;
+    sessao.highlightTitle = template.highlightTitle;
+    sessao.highlightText = template.highlightText;
+    sessao.cta = template.cta;
     sessao.footer = template.footer;
+    sessao.authorName = template.authorName;
 
     return sessao;
 }
 
 function buildPreviewEmbed(sessao, user) {
-    const template = TEMPLATES[sessao.template] || TEMPLATES.aviso;
+    const template = TEMPLATES[sessao.template] || TEMPLATES.premium_announcement;
 
     const embed = new EmbedBuilder()
         .setColor(sessao.color || template.color)
-        .setTitle(sessao.title || template.title)
-        .setDescription(sessao.description || template.description)
-        .setFooter({ text: sessao.footer || template.footer })
+        .setTitle(`╭・${sessao.title || template.title}`)
+        .setDescription(
+            `> ${sessao.subtitle || template.subtitle}\n\n` +
+            `${sessao.description || template.description}`
+        )
+        .setFooter({
+            text: sessao.footer || template.footer,
+            iconURL: user.displayAvatarURL({ dynamic: true })
+        })
         .setTimestamp();
 
-    if (sessao.iconUrl) {
-        embed.setAuthor({
-            name: user.username,
-            iconURL: sessao.iconUrl
-        });
-    } else {
-        embed.setAuthor({
-            name: user.username,
-            iconURL: user.displayAvatarURL({ dynamic: true })
-        });
-    }
+    embed.setAuthor({
+        name: sessao.authorName || template.authorName,
+        iconURL: sessao.iconUrl || user.displayAvatarURL({ dynamic: true })
+    });
+
+    embed.addFields(
+        {
+            name: sessao.highlightTitle || template.highlightTitle,
+            value: sessao.highlightText || template.highlightText,
+            inline: false
+        },
+        {
+            name: '📣 Chamada final',
+            value: sessao.cta || template.cta,
+            inline: false
+        }
+    );
 
     if (sessao.imageUrl) embed.setImage(sessao.imageUrl);
     if (sessao.thumbnailUrl) embed.setThumbnail(sessao.thumbnailUrl);
-
-    embed.addFields({
-        name: '🎨 Template selecionado',
-        value: template.label,
-        inline: false
-    });
 
     return embed;
 }
@@ -151,7 +204,7 @@ function buildPreviewEmbed(sessao, user) {
 function buildEditorRows(sessao) {
     const select = new StringSelectMenuBuilder()
         .setCustomId('mensagem_select_template')
-        .setPlaceholder('Escolha um template')
+        .setPlaceholder('Escolha um template premium')
         .addOptions(
             Object.entries(TEMPLATES).map(([value, data]) => ({
                 label: data.label,
@@ -169,6 +222,11 @@ function buildEditorRows(sessao) {
             .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
+            .setCustomId('mensagem_edit_subtitulo')
+            .setLabel('Subtítulo')
+            .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
             .setCustomId('mensagem_edit_texto')
             .setLabel('Texto')
             .setStyle(ButtonStyle.Primary),
@@ -181,7 +239,29 @@ function buildEditorRows(sessao) {
         new ButtonBuilder()
             .setCustomId('mensagem_edit_footer')
             .setLabel('Rodapé')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    const row3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('mensagem_edit_highlight')
+            .setLabel('Destaque')
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId('mensagem_edit_cta')
+            .setLabel('Chamada final')
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId('mensagem_edit_imagem')
+            .setLabel('Banner')
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId('mensagem_edit_thumb')
+            .setLabel('Thumbnail')
+            .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
             .setCustomId('mensagem_edit_icone')
@@ -189,17 +269,7 @@ function buildEditorRows(sessao) {
             .setStyle(ButtonStyle.Secondary)
     );
 
-    const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('mensagem_edit_imagem')
-            .setLabel('Foto principal')
-            .setStyle(ButtonStyle.Success),
-
-        new ButtonBuilder()
-            .setCustomId('mensagem_edit_thumb')
-            .setLabel('Foto canto direito')
-            .setStyle(ButtonStyle.Success),
-
+    const row4 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('mensagem_publicar')
             .setLabel('Publicar')
@@ -211,7 +281,7 @@ function buildEditorRows(sessao) {
             .setStyle(ButtonStyle.Danger)
     );
 
-    return [row1, row2, row3];
+    return [row1, row2, row3, row4];
 }
 
 function isValidHexColor(color) {
