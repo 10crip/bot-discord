@@ -61,7 +61,6 @@ if (fs.existsSync(eventsPath)) {
                 return;
             }
 
-            // Evita múltiplos interactionCreate ao mesmo tempo
             if (event.name === 'interactionCreate') {
                 if (file !== 'interactionCreate.js') {
                     console.log(`⏭️ Evento ignorado para evitar conflito: ${file}`);
@@ -88,13 +87,6 @@ if (fs.existsSync(eventsPath)) {
         }
     });
 }
-
-// ==================================================
-// ✅ READY EXTRA
-// ==================================================
-client.once('ready', () => {
-    console.log(`✅ Bot online como ${client.user.tag}`);
-});
 
 // ==================================================
 // 🔐 LOGIN
