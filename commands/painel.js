@@ -1,50 +1,53 @@
-const {
+const { 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
     EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
     PermissionsBitField
 } = require('discord.js');
 
-const CANAL_PAINEL_ID = '1490936815228555274';
+require('dotenv').config();
 
 module.exports = {
     name: 'painel',
-    async execute(message) {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Você não tem permissão para enviar o painel.');
-        }
 
-        if (message.channel.id !== CANAL_PAINEL_ID) {
-            return message.reply(`❌ Use este comando no canal <#${CANAL_PAINEL_ID}>.`);
+    async execute(message) {
+
+        const cargoStaff = process.env.CARGO_STAFF;
+
+        // Verificar permissão
+        if (!message.member.roles.cache.has(cargoStaff)) {
+            return message.reply({
+                content: '❌ Você não tem permissão para usar este comando.',
+                ephemeral: true
+            });
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Central de Atendimento')
+            .setTitle('🎫 Central de Suporte')
             .setDescription(
-                'Escolha uma opção abaixo para abrir seu ticket.\n\n' +
+                'Escolha uma opção abaixo para abrir um ticket:\n\n' +
                 '🔧 **Suporte**\n' +
                 '🤝 **Parceria**'
             )
-            .setColor('Red');
+            .setColor('#2b2d31')
+            .setFooter({ text: 'Sistema de Tickets' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('abrir_ticket_suporte')
+                .setCustomId('ticket_suporte')
                 .setLabel('Suporte')
                 .setStyle(ButtonStyle.Primary),
 
             new ButtonBuilder()
-                .setCustomId('abrir_ticket_parceria')
+                .setCustomId('ticket_parceria')
                 .setLabel('Parceria')
-                .setStyle(ButtonStyle.Success)
+                .setStyle(ButtonStyle.Secondary)
         );
 
         await message.channel.send({
             embeds: [embed],
             components: [row]
         });
-
-        await message.reply('✅ Painel enviado com sucesso.');
     }
 };
