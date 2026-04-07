@@ -34,6 +34,7 @@ const CALL_CREATE_MODAL_ID = 'modal_criar_call';
 const dataDir = path.join(__dirname, '..', 'data');
 const ticketsFile = path.join(dataDir, 'tickets.json');
 const postSessionsFile = path.join(dataDir, 'post_sessions.json');
+const tempCallsFile = path.join(dataDir, 'temp_calls.json');
 
 function ensureJsonFile(filePath) {
     const dir = path.dirname(filePath);
@@ -95,6 +96,20 @@ function createPostSession(userId, guildId, channelId) {
     };
 
     saveJson(postSessionsFile, sessions);
+}
+
+function registerTempCall(channel, userId) {
+    const tempCalls = readJson(tempCallsFile);
+
+    tempCalls[channel.id] = {
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        ownerId: userId,
+        categoryId: channel.parentId,
+        createdAt: Date.now()
+    };
+
+    saveJson(tempCallsFile, tempCalls);
 }
 
 function buildFeedbackButtons(ticketChannelId) {
@@ -308,6 +323,8 @@ module.exports = {
                         }
                     ]
                 });
+
+                registerTempCall(createdChannel, interaction.user.id);
 
                 try {
                     await member.voice.setChannel(createdChannel);
