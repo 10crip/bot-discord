@@ -22,13 +22,11 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('🎫 Central de Atendimento')
             .setDescription(
-                'Selecione uma opção abaixo para abrir seu ticket.\n\n' +
+                'Escolha uma opção abaixo para abrir seu ticket.\n\n' +
                 '🔧 **Suporte**\n' +
-                '🤝 **Parceria**\n\n' +
-                'Ao clicar, será criado um canal privado para você e a equipe.'
+                '🤝 **Parceria**'
             )
-            .setColor('Red')
-            .setFooter({ text: 'Escolha uma opção para continuar.' });
+            .setColor('Red');
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
