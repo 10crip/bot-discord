@@ -11,16 +11,16 @@ module.exports = {
 
             if (interaction.customId === 'abrir_postagem') {
                 await interaction.reply({
-                    content: '📩 Te chamei no privado para continuar sua postagem.',
+                    content: '✅ Botão funcionando. Te chamei no privado.',
                     ephemeral: true
                 });
 
                 try {
                     await interaction.user.send(
-                        '📸 **Vamos criar sua postagem!**\n\nEnvie primeiro o **título da postagem**.'
+                        '📩 Olá! Envie o título da sua postagem.'
                     );
-                } catch (dmError) {
-                    console.error('Erro ao enviar DM:', dmError);
+                } catch (error) {
+                    console.error('Erro ao enviar DM:', error);
 
                     await interaction.followUp({
                         content: '❌ Não consegui te chamar no privado. Ative sua DM e tente novamente.',
