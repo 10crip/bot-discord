@@ -28,8 +28,14 @@ module.exports = {
             }
 
             const [action, postId] = interaction.customId.split(':');
+            const publishChannelId = process.env.POST_CHANNEL_ID;
 
-            const publishChannelId = process.env.POST_CHANNEL_ID || '1490955877321146458';
+            if (!publishChannelId) {
+                return interaction.reply({
+                    content: '❌ O canal final de postagens não está configurado no .env.',
+                    ephemeral: true
+                });
+            }
 
             if (action === 'approve_post') {
                 const post = await approvePost(interaction, postId, publishChannelId);
