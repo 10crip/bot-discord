@@ -1,34 +1,36 @@
-const { 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
-    EmbedBuilder 
+const {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    EmbedBuilder
 } = require('discord.js');
-
-require('dotenv').config();
+const { isStaff } = require('../utils/staff');
 
 module.exports = {
     name: 'painelpost',
 
     async execute(message) {
+        if (!message.guild) {
+            return message.reply('❌ Este comando só pode ser usado dentro de um servidor.');
+        }
 
-        const cargoStaff = process.env.CARGO_STAFF;
-
-        // Verificar permissão
-        if (!message.member.roles.cache.has(cargoStaff)) {
-            return message.reply({
-                content: '❌ Você não tem permissão para usar este comando.'
-            });
+        if (!isStaff(message.member, message.guild.id)) {
+            return message.reply('❌ Você não tem permissão para usar este comando.');
         }
 
         const embed = new EmbedBuilder()
             .setTitle('📢 Sistema de Postagens')
-            .setDescription(
-                'Clique no botão abaixo para enviar uma postagem.\n\n' +
-                '📩 O bot irá te chamar no privado.'
-            )
             .setColor('#5865F2')
-            .setFooter({ text: 'Sistema de Postagem com Aprovação' });
+            .setDescription(
+                [
+                    'Clique no botão abaixo para iniciar uma postagem.',
+                    '',
+                    '📩 O bot irá te chamar no privado para coletar:',
+                    '• título',
+                    '• imagem ou vídeo'
+                ].join('\n')
+            )
+            .setFooter({ text: 'Postagens com aprovação manual' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
