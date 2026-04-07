@@ -167,7 +167,33 @@ module.exports = {
     name: 'interactionCreate',
     async execute(interaction) {
         if (!interaction.isButton()) return;
+        const fs = require('fs');
+        const postSessions = require('../post_sessions.json');
 
+        if (interaction.customId === 'abrir_postagem') {
+            postSessions[interaction.user.id] = {
+                etapa: 'titulo'
+            };
+
+            fs.writeFileSync('./post_sessions.json', JSON.stringify(postSessions, null, 2));
+
+            try {
+                await interaction.user.send(
+                    '📸 **Vamos criar sua postagem!**\n\n' +
+                    'Envie agora o **título da postagem**.'
+                );
+
+                return interaction.reply({
+                    content: '✅ Te chamei no privado para continuar sua postagem.',
+                    ephemeral: true
+                });
+            } catch (error) {
+                return interaction.reply({
+                    content: '❌ Não consegui te chamar no privado. Ative sua DM e tente novamente.',
+                    ephemeral: true
+                });
+            }
+        }
         const guild = interaction.guild;
         const user = interaction.user;
 
