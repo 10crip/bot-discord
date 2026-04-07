@@ -244,6 +244,15 @@ module.exports = {
                     });
                 }
 
+                const member = interaction.member;
+                const memberVoiceChannel = member?.voice?.channel;
+
+                if (!memberVoiceChannel) {
+                    return replyTemp(interaction, {
+                        content: '❌ Você precisa estar conectado em uma call para eu te mover automaticamente.'
+                    });
+                }
+
                 const callNameRaw = interaction.fields.getTextInputValue('call_name');
                 const callLimitRaw = interaction.fields.getTextInputValue('call_limit');
 
@@ -285,9 +294,26 @@ module.exports = {
                                 PermissionsBitField.Flags.Connect,
                                 PermissionsBitField.Flags.Speak
                             ]
+                        },
+                        {
+                            id: interaction.user.id,
+                            allow: [
+                                PermissionsBitField.Flags.ViewChannel,
+                                PermissionsBitField.Flags.Connect,
+                                PermissionsBitField.Flags.Speak,
+                                PermissionsBitField.Flags.MoveMembers,
+                                PermissionsBitField.Flags.MuteMembers,
+                                PermissionsBitField.Flags.DeafenMembers
+                            ]
                         }
                     ]
                 });
+
+                try {
+                    await member.voice.setChannel(createdChannel);
+                } catch (moveError) {
+                    console.error('Erro ao mover usuário para a call criada:', moveError);
+                }
 
                 const embed = new EmbedBuilder()
                     .setColor('#5865F2')
