@@ -4,7 +4,7 @@ const {
     ButtonStyle,
     EmbedBuilder
 } = require('discord.js');
-const { isStaff } = require('../utils/staff');
+const { memberHasStaffRole } = require('../guildConfig');
 
 module.exports = {
     name: 'painel',
@@ -14,7 +14,7 @@ module.exports = {
             return message.reply('❌ Este comando só pode ser usado dentro de um servidor.');
         }
 
-        if (!isStaff(message.member, message.guild.id)) {
+        if (!memberHasStaffRole(message.member)) {
             return message.reply('❌ Você não tem permissão para usar este comando.');
         }
 
@@ -23,19 +23,25 @@ module.exports = {
             .setColor('#2B2D31')
             .setDescription(
                 [
-                    'Selecione uma opção abaixo para abrir um ticket:',
+                    'Bem-vindo à **Central de Suporte**.',
                     '',
-                    '🔧 **Suporte**',
-                    '🤝 **Parceria**'
+                    'Selecione uma das opções abaixo para abrir seu atendimento:',
+                    '',
+                    '🔧 **Suporte** → Para dúvidas, ajuda ou problemas.',
+                    '🤝 **Parceria** → Para propostas e parcerias.',
+                    '',
+                    'Nossa equipe irá atender você assim que possível.'
                 ].join('\n')
             )
-            .setFooter({ text: 'Sistema de Tickets' });
+            .setFooter({ text: 'Sistema de Tickets' })
+            .setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('ticket_suporte')
                 .setLabel('Suporte')
                 .setStyle(ButtonStyle.Primary),
+
             new ButtonBuilder()
                 .setCustomId('ticket_parceria')
                 .setLabel('Parceria')
