@@ -25,16 +25,16 @@ module.exports = {
                 [
                     'Bem-vindo ao **Sistema de Postagens**.',
                     '',
-                    'Clique no botão abaixo para enviar sua postagem.',
+                    'Clique no botão abaixo para iniciar o envio de uma postagem.',
                     '',
-                    '📩 O bot irá iniciar o processo no seu privado.',
-                    '📝 Você poderá enviar título e mídia (imagem ou vídeo).',
-                    '✅ Sua postagem será enviada para aprovação.',
+                    '📩 O bot continuará o processo no seu privado.',
+                    '📝 Você poderá enviar título e mídia.',
+                    '✅ A postagem será enviada para aprovação no canal configurado.',
                     '',
                     'Aguarde a análise da equipe.'
                 ].join('\n')
             )
-            .setFooter({ text: 'Sistema de Postagens com Aprovação' })
+            .setFooter({ text: 'Sistema de Postagens' })
             .setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
