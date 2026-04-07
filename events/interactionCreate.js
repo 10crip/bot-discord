@@ -3,7 +3,9 @@ const {
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
-    ActionRowBuilder
+    ActionRowBuilder,
+    ChannelType,
+    PermissionsBitField
 } = require('discord.js');
 
 const { memberHasStaffRole } = require('../guildConfig');
@@ -22,7 +24,111 @@ module.exports = {
     async execute(client, interaction) {
         try {
             // ==================================================
-            // APROVAÇÃO / RECUSA DE POSTS
+            // 🎫 TICKETS
+            // ==================================================
+            if (interaction.isButton()) {
+                if (
+                    interaction.customId === 'abrir_ticket_suporte' ||
+                    interaction.customId === 'abrir_ticket_parceria'
+                ) {
+                    if (!interaction.guild) {
+                        return interaction.reply({
+                            content: '❌ Esta interação só pode ser usada em servidor.',
+                            ephemeral: true
+                        });
+                    }
+
+                    const ticketType =
+                        interaction.customId === 'abrir_ticket_suporte'
+                            ? 'suporte'
+                            : 'parceria';
+
+                    const existingChannel = interaction.guild.channels.cache.find(channel => {
+                        if (channel.type !== ChannelType.GuildText) return false;
+
+                        const hasUserPermission = channel.permissionOverwrites.cache.some(
+                            overwrite =>
+                                overwrite.id === interaction.user.id &&
+                                overwrite.allow.has(PermissionsBitField.Flags.ViewChannel)
+                        );
+
+                        return hasUserPermission && channel.name.startsWith(`ticket-${ticketType}-`);
+                    });
+
+                    if (existingChannel) {
+                        return interaction.reply({
+                            content: `❌ Você já possui um ticket de **${ticketType}** aberto em ${existingChannel}.`,
+                            ephemeral: true
+                        });
+                    }
+
+                    const safeUserName = interaction.user.username
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9-_]/g, '')
+                        .slice(0, 12) || 'usuario';
+
+                    const channelName = `ticket-${ticketType}-${safeUserName}`;
+
+                    const channel = await interaction.guild.channels.create({
+                        name: channelName,
+                        type: ChannelType.GuildText,
+                        permissionOverwrites: [
+                            {
+                                id: interaction.guild.roles.everyone.id,
+                                deny: [
+                                    PermissionsBitField.Flags.ViewChannel
+                                ]
+                            },
+                            {
+                                id: interaction.user.id,
+                                allow: [
+                                    PermissionsBitField.Flags.ViewChannel,
+                                    PermissionsBitField.Flags.SendMessages,
+                                    PermissionsBitField.Flags.ReadMessageHistory,
+                                    PermissionsBitField.Flags.AttachFiles,
+                                    PermissionsBitField.Flags.EmbedLinks
+                                ]
+                            }
+                        ]
+                    });
+
+                    const embed = new EmbedBuilder()
+                        .setColor(ticketType === 'suporte' ? '#5865F2' : '#57F287')
+                        .setTitle(
+                            ticketType === 'suporte'
+                                ? '🛠️ Ticket de Suporte Aberto'
+                                : '🤝 Ticket de Parceria Aberto'
+                        )
+                        .setDescription(
+                            `Olá ${interaction.user}, seu atendimento de **${ticketType}** foi criado com sucesso.\n\n` +
+                            'Descreva os detalhes da sua solicitação e aguarde a equipe responder.'
+                        )
+                        .addFields({
+                            name: '📌 Importante',
+                            value: 'Explique seu caso com clareza para agilizar o atendimento.',
+                            inline: false
+                        })
+                        .setFooter({
+                            text: `${interaction.guild.name} • Sistema de tickets`
+                        })
+                        .setTimestamp();
+
+                    await channel.send({
+                        content: `${interaction.user}`,
+                        embeds: [embed]
+                    });
+
+                    return interaction.reply({
+                        content: `✅ Seu ticket foi criado com sucesso: ${channel}`,
+                        ephemeral: true
+                    });
+                }
+            }
+
+            // ==================================================
+            // ✅ APROVAÇÃO / ❌ RECUSA DE POSTS
             // ==================================================
             if (interaction.isButton()) {
                 if (
@@ -88,7 +194,7 @@ module.exports = {
             }
 
             // ==================================================
-            // INTERAÇÕES DOS POSTS PUBLICADOS
+            // ❤️ INTERAÇÕES DAS POSTAGENS
             // ==================================================
             if (interaction.isButton()) {
                 if (interaction.customId.startsWith('post_like:')) {
@@ -191,6 +297,13 @@ module.exports = {
                     const commentText = interaction.fields.getTextInputValue('post_comment_text');
                     const result = addComment(messageId, interaction.user, commentText);
 
+                    if (!result) {
+                        return interaction.reply({
+                            content: '❌ Não foi possível adicionar o comentário.',
+                            ephemeral: true
+                        });
+                    }
+
                     const channel = await interaction.client.channels.fetch(post.channelId).catch(() => null);
 
                     if (channel) {
@@ -248,27 +361,11 @@ module.exports = {
             }
 
             // ==================================================
-            // BLOCO RESERVADO PARA O SISTEMA !MENSAGEM
+            // 📨 BLOCO RESERVADO PARA O SISTEMA !MENSAGEM
             // ==================================================
-            // Aqui entra o tratamento dos customIds do editor:
-            // mensagem_select_template
-            // mensagem_edit_titulo
-            // mensagem_edit_subtitulo
-            // mensagem_edit_texto
-            // mensagem_edit_cor
-            // mensagem_edit_footer
-            // mensagem_edit_highlight
-            // mensagem_edit_cta
-            // mensagem_edit_imagem
-            // mensagem_edit_thumb
-            // mensagem_edit_icone
-            // mensagem_publicar
-            // mensagem_cancelar
-            //
-            // Como o conteúdo do arquivo events/mensagemBuilder.js não veio,
-            // mantive essa área separada para você encaixar a lógica exata sem
-            // misturar com posts/aprovação e sem quebrar o restante.
-
+            // A lógica do builder de mensagem não foi enviada completa.
+            // Quando você mandar os arquivos restantes do sistema de mensagem,
+            // eu te devolvo este mesmo arquivo já com essa parte encaixada.
         } catch (error) {
             console.error('Erro no interactionCreate:', error);
 
