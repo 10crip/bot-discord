@@ -1,51 +1,57 @@
 const {
+    EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle,
-    EmbedBuilder
+    ButtonStyle
 } = require('discord.js');
-const { memberHasStaffRole } = require('../guildConfig');
 
 module.exports = {
     name: 'painel',
 
     async execute(message) {
-        if (!message.guild) {
-            return message.reply('❌ Este comando só pode ser usado dentro de um servidor.');
-        }
-
-        if (!memberHasStaffRole(message.member)) {
-            return message.reply('❌ Você não tem permissão para usar este comando.');
-        }
-
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Central de Suporte')
-            .setColor('#2B2D31')
+            .setColor('#ED4245')
+            .setTitle('🎧 Central de Atendimento Premium')
             .setDescription(
-                [
-                    'Bem-vindo à **Central de Suporte**.',
-                    '',
-                    'Selecione uma das opções abaixo para abrir seu atendimento:',
-                    '',
-                    '🔧 **Suporte** → Para dúvidas, ajuda ou problemas.',
-                    '🤝 **Parceria** → Para propostas e parcerias.',
-                    '',
-                    'Nossa equipe irá atender você assim que possível.'
-                ].join('\n')
+                'Bem-vindo à nossa central de suporte.\n\n' +
+                'Selecione abaixo o tipo de atendimento que você deseja abrir.\n\n' +
+                '✨ Atendimento organizado\n' +
+                '🔒 Canal privado e seguro\n' +
+                '⚡ Resposta direta da equipe'
             )
-            .setFooter({ text: 'Sistema de Tickets' })
+            .addFields(
+                {
+                    name: '🛠️ Suporte',
+                    value: 'Para dúvidas, problemas, bugs ou ajuda geral no servidor.',
+                    inline: true
+                },
+                {
+                    name: '🤝 Parceria',
+                    value: 'Para propostas comerciais, divulgação e parcerias.',
+                    inline: true
+                },
+                {
+                    name: '📌 Importante',
+                    value: 'Evite abrir mais de um atendimento para o mesmo assunto.',
+                    inline: false
+                }
+            )
+            .setThumbnail(message.guild.iconURL({ dynamic: true }))
+            .setFooter({ text: `${message.guild.name} • Atendimento oficial` })
             .setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('ticket_suporte')
-                .setLabel('Suporte')
+                .setCustomId('abrir_ticket_suporte')
+                .setLabel('Abrir Suporte')
+                .setEmoji('🛠️')
                 .setStyle(ButtonStyle.Primary),
 
             new ButtonBuilder()
-                .setCustomId('ticket_parceria')
-                .setLabel('Parceria')
-                .setStyle(ButtonStyle.Secondary)
+                .setCustomId('abrir_ticket_parceria')
+                .setLabel('Abrir Parceria')
+                .setEmoji('🤝')
+                .setStyle(ButtonStyle.Success)
         );
 
         await message.channel.send({
