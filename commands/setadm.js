@@ -1,5 +1,5 @@
 const { EmbedBuilder, PermissionsBitField } = require('discord.js');
-const { getGuildConfig, setStaffRoles } = require('../utils/guildConfig');
+const { addStaffRole, getStaffRoles } = require('../guildConfig');
 
 module.exports = {
     name: 'setadm',
@@ -10,87 +10,38 @@ module.exports = {
         }
 
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Apenas administradores podem configurar os cargos de staff.');
+            return message.reply('❌ Apenas administradores podem configurar cargos de staff.');
         }
 
-        const guildConfig = getGuildConfig(message.guild.id);
+        const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]);
 
-        if (!args.length) {
-            const cargosAtuais = guildConfig.staffRoleIds.length
-                ? guildConfig.staffRoleIds
-                    .map(roleId => message.guild.roles.cache.get(roleId))
-                    .filter(Boolean)
-                    .map(role => `${role}`)
-                    .join(', ')
-                : 'Nenhum cargo configurado.';
-
-            const embed = new EmbedBuilder()
-                .setTitle('⚙️ Configuração de Staff')
-                .setColor('#5865F2')
-                .setDescription(
-                    [
-                        `**Cargos atuais:** ${cargosAtuais}`,
-                        '',
-                        '**Como usar:**',
-                        '`!setadm @Cargo1 @Cargo2 @Cargo3`',
-                        '',
-                        '**Outros usos:**',
-                        '`!setadm limpar` → remove todos os cargos configurados'
-                    ].join('\n')
-                );
-
-            return message.reply({ embeds: [embed] });
+        if (!role) {
+            return message.reply('❌ Você precisa mencionar um cargo válido ou informar o ID do cargo.');
         }
 
-        const firstArg = args[0]?.toLowerCase();
+        addStaffRole(message.guild.id, role.id);
 
-        if (firstArg === 'limpar') {
-            setStaffRoles(message.guild.id, []);
-
-            const embed = new EmbedBuilder()
-                .setTitle('✅ Staff resetada')
-                .setColor('#57F287')
-                .setDescription('Todos os cargos de staff deste servidor foram removidos.');
-
-            return message.reply({ embeds: [embed] });
-        }
-
-        const roleIds = new Set();
-
-        for (const role of message.mentions.roles.values()) {
-            roleIds.add(role.id);
-        }
-
-        for (const arg of args) {
-            const cleaned = arg.replace(/[<@&>]/g, '');
-            if (/^\d+$/.test(cleaned)) {
-                const foundRole = message.guild.roles.cache.get(cleaned);
-                if (foundRole) {
-                    roleIds.add(foundRole.id);
-                }
-            }
-        }
-
-        if (!roleIds.size) {
-            return message.reply(
-                '❌ Você precisa mencionar pelo menos um cargo válido.\nExemplo: `!setadm @Staff @Moderador`'
-            );
-        }
-
-        const finalRoles = [...roleIds];
-        setStaffRoles(message.guild.id, finalRoles);
-
-        const cargosFormatados = finalRoles
-            .map(roleId => message.guild.roles.cache.get(roleId))
-            .filter(Boolean)
-            .map(role => `${role}`)
-            .join(', ');
+        const staffRoles = getStaffRoles(message.guild.id)
+            .map(roleId => {
+                const guildRole = message.guild.roles.cache.get(roleId);
+                return guildRole ? `<@&${guildRole.id}>` : `Cargo removido (${roleId})`;
+            })
+            .join('\n');
 
         const embed = new EmbedBuilder()
-            .setTitle('✅ Cargos de staff configurados')
-            .setColor('#57F287')
-            .setDescription(`Os cargos com permissão de staff agora são:\n${cargosFormatados}`);
+            .setTitle('🛡️ Cargo de staff adicionado')
+            .setColor('#5865F2')
+            .setDescription(`O cargo ${role} agora possui permissão de **staff** neste servidor.`)
+            .addFields(
+                {
+                    name: 'Cargos com permissão',
+                    value: staffRoles || 'Nenhum cargo configurado.',
+                    inline: false
+                }
+            )
+            .setFooter({ text: 'Sistema de Staff' })
+            .setTimestamp();
 
-        return message.reply({ embeds: [embed] });
+        await message.reply({ embeds: [embed] });
     }
 };
