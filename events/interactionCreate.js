@@ -197,19 +197,34 @@ module.exports = {
                 salvarJson(postSessionsPath, postSessions);
 
                 await interaction.reply({
-                    content: '✅ Te chamei no privado para continuar sua postagem.',
+                    content: '✨ Verifique seu privado para começar sua postagem.',
                     ephemeral: true
                 });
 
+                setTimeout(() => {
+                    interaction.deleteReply().catch(() => {});
+                }, 30000);
+
                 try {
-                    await user.send('📩 Olá! Envie o título da sua postagem.');
+                    const embedDM = new EmbedBuilder()
+                        .setColor('#5865F2')
+                        .setTitle('🚀 Criação de Postagem')
+                        .setDescription(
+                            'Seu conteúdo está a um passo de aparecer para toda a comunidade.\n\n' +
+                            '📝 Envie agora o **título da sua postagem**.\n\n' +
+                            'Capriche — um bom título chama mais atenção.'
+                        )
+                        .setFooter({ text: 'Sistema de Postagens • Etapa 1 de 2' })
+                        .setTimestamp();
+
+                    await user.send({ embeds: [embedDM] });
                 } catch (dmError) {
                     console.error('Erro ao enviar DM:', dmError);
 
                     await interaction.followUp({
                         content: '❌ Não consegui te chamar no privado. Ative sua DM e tente novamente.',
                         ephemeral: true
-                    });
+                    }).catch(() => {});
                 }
 
                 return;
@@ -277,7 +292,8 @@ module.exports = {
                     const embedResposta = new EmbedBuilder()
                         .setTitle('✅ Postagem aprovada')
                         .setDescription(`A postagem de <@${post.userId}> foi aprovada por ${interaction.user}.`)
-                        .setColor('Green');
+                        .setColor('Green')
+                        .setTimestamp();
 
                     return interaction.update({
                         embeds: [embedResposta],
@@ -315,7 +331,7 @@ module.exports = {
                     const usuario = await interaction.client.users.fetch(post.userId);
 
                     await usuario.send(
-                        '❌ Sua postagem foi **recusada** pela staff. Você pode tentar enviar outra postagem depois.'
+                        '❌ Sua postagem foi **recusada** pela staff. Você pode ajustar o conteúdo e tentar novamente depois.'
                     ).catch(() => {});
 
                     delete pendingPosts[postId];
@@ -324,7 +340,8 @@ module.exports = {
                     const embedResposta = new EmbedBuilder()
                         .setTitle('❌ Postagem recusada')
                         .setDescription(`A postagem de <@${post.userId}> foi recusada por ${interaction.user}.`)
-                        .setColor('Red');
+                        .setColor('Red')
+                        .setTimestamp();
 
                     return interaction.update({
                         embeds: [embedResposta],
