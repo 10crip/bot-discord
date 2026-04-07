@@ -4,7 +4,7 @@ const {
     ButtonStyle,
     EmbedBuilder
 } = require('discord.js');
-const { isStaff } = require('../utils/staff');
+const { memberHasStaffRole } = require('../guildConfig');
 
 module.exports = {
     name: 'painelpost',
@@ -14,7 +14,7 @@ module.exports = {
             return message.reply('❌ Este comando só pode ser usado dentro de um servidor.');
         }
 
-        if (!isStaff(message.member, message.guild.id)) {
+        if (!memberHasStaffRole(message.member)) {
             return message.reply('❌ Você não tem permissão para usar este comando.');
         }
 
@@ -23,14 +23,19 @@ module.exports = {
             .setColor('#5865F2')
             .setDescription(
                 [
-                    'Clique no botão abaixo para iniciar uma postagem.',
+                    'Bem-vindo ao **Sistema de Postagens**.',
                     '',
-                    '📩 O bot irá te chamar no privado para coletar:',
-                    '• título',
-                    '• imagem ou vídeo'
+                    'Clique no botão abaixo para enviar sua postagem.',
+                    '',
+                    '📩 O bot irá iniciar o processo no seu privado.',
+                    '📝 Você poderá enviar título e mídia (imagem ou vídeo).',
+                    '✅ Sua postagem será enviada para aprovação.',
+                    '',
+                    'Aguarde a análise da equipe.'
                 ].join('\n')
             )
-            .setFooter({ text: 'Postagens com aprovação manual' });
+            .setFooter({ text: 'Sistema de Postagens com Aprovação' })
+            .setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
