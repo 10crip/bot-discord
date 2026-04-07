@@ -2,56 +2,64 @@ const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
     name: 'help',
+
     execute(message) {
         const guildName = message.guild?.name || 'Servidor';
-        const guildIcon = message.guild?.iconURL({ dynamic: true, size: 1024 });
+        const guildIcon = message.guild?.iconURL({ dynamic: true });
 
         const embed = new EmbedBuilder()
-            .setColor('Red')
-            .setTitle('📘 Painel de Comandos')
+            .setColor('#ff0000')
+            .setTitle('📘 Central de Comandos')
             .setDescription(
-                `Bem-vindo ao **sistema de ajuda** de **${guildName}**.\n\n` +
-                'Aqui estão todos os comandos disponíveis no bot, organizados de forma clara entre **comandos para membros** e **comandos para staff**.\n\n' +
-                'Use cada comando com atenção para aproveitar todos os sistemas disponíveis no servidor.'
+                `Bem-vindo ao sistema de ajuda de **${guildName}**.\n\n` +
+                'Aqui você encontra todos os comandos disponíveis, organizados por categoria.\n\n' +
+                'Use os comandos corretamente para aproveitar todos os recursos do bot. 🚀'
             )
+
             .addFields(
                 {
-                    name: '╭───────────── 👥 Membros',
+                    name: '╭── 👥 Comandos de Membros',
                     value:
-                        '**Utilidade**\n' +
-                        '`!ping` ・ Mostra a latência atual do bot.\n' +
-                        '`!help` ・ Exibe este painel de comandos.\n' +
-                        '`!avatar @usuário` ・ Mostra o avatar de um usuário.\n\n' +
-                        '**Economia**\n' +
-                        '`!saldo` ・ Mostra seu saldo atual.\n' +
-                        '`!daily` ・ Resgata sua recompensa diária.\n' +
-                        '`!work` ・ Trabalha para ganhar moedas.\n' +
-                        '`!pay @usuário valor` ・ Transfere moedas para outro usuário.\n' +
-                        '`!top` ・ Mostra o ranking de moedas.',
+                        '```fix\n' +
+                        'ping     → Mostra a latência do bot\n' +
+                        'help     → Mostra este painel\n' +
+                        'avatar   → Mostra avatar do usuário\n' +
+                        '\n' +
+                        'saldo    → Mostra seu saldo\n' +
+                        'daily    → Recompensa diária\n' +
+                        'work     → Trabalhar para ganhar moedas\n' +
+                        'pay      → Transferir dinheiro\n' +
+                        'top      → Ranking de usuários\n' +
+                        '```',
                     inline: false
                 },
+
                 {
-                    name: '╰───────────── 🛠️ Staff',
+                    name: '╰── 🛠️ Comandos de Staff',
                     value:
-                        '**Tickets e Postagens**\n' +
-                        '`!painel` ・ Envia o painel de tickets no canal atual.\n' +
-                        '`!painelpost` ・ Envia o painel de criação de postagens no canal atual.\n' +
-                        '`!verificarpost` ・ Define o canal atual como canal de aprovação de postagens.\n' +
-                        '`!setadm @cargo` ・ Adiciona um cargo à lista de cargos com permissão de staff.\n\n' +
-                        '**Moderação**\n' +
-                        '`!clear 1-100` ・ Apaga mensagens do canal.\n' +
-                        '`!ban @usuário [motivo]` ・ Bane um usuário do servidor.\n' +
-                        '`!kick @usuário [motivo]` ・ Expulsa um usuário do servidor.',
+                        '```fix\n' +
+                        'painel        → Envia painel de tickets\n' +
+                        'painelpost    → Painel de postagens\n' +
+                        'verificarpost → Define canal de aprovação\n' +
+                        'setadm        → Adiciona cargo staff\n' +
+                        '\n' +
+                        'clear         → Limpar mensagens\n' +
+                        'ban           → Banir usuário\n' +
+                        'kick          → Expulsar usuário\n' +
+                        '```',
                     inline: false
                 },
+
                 {
-                    name: 'ℹ️ Observação',
+                    name: '⚠️ Observações',
                     value:
-                        'Alguns comandos dependem das permissões configuradas no servidor.\n' +
-                        'Caso você não consiga usar algum comando de staff, verifique se seu cargo foi adicionado com `!setadm`.',
+                        '• Alguns comandos requerem permissões específicas.\n' +
+                        '• Use `!setadm` para definir quem é staff.\n' +
+                        '• O sistema funciona por servidor (multi-guild).',
                     inline: false
                 }
             )
+
             .setThumbnail(guildIcon)
             .setFooter({
                 text: `Solicitado por ${message.author.username}`,
