@@ -42,46 +42,37 @@ function saveData(data) {
     }
 }
 
-function createDefaultPostRecord(messageId, channelId, guildId) {
+function createDefaultPostRecord(messageId, channelId, guildId, authorId = null) {
     return {
         messageId,
         channelId,
         guildId,
+        authorId,
         likes: [],
         comments: [],
         createdAt: Date.now()
     };
 }
 
-function ensurePostRecord(messageId, channelId = null, guildId = null) {
-    const data = readData();
-
-    if (!data[messageId]) {
-        data[messageId] = createDefaultPostRecord(messageId, channelId, guildId);
-        saveData(data);
-    }
-
-    return data[messageId];
-}
-
-function getPostRecord(messageId) {
-    const data = readData();
-    return data[messageId] || null;
-}
-
-function initPostRecord(message) {
+function initPostRecord(message, authorId = null) {
     const data = readData();
 
     if (!data[message.id]) {
         data[message.id] = createDefaultPostRecord(
             message.id,
             message.channel.id,
-            message.guild?.id || null
+            message.guild?.id || null,
+            authorId
         );
         saveData(data);
     }
 
     return data[message.id];
+}
+
+function getPostRecord(messageId) {
+    const data = readData();
+    return data[messageId] || null;
 }
 
 function toggleLike(messageId, user) {
@@ -116,25 +107,22 @@ function addComment(messageId, user, content) {
 
     if (!cleanContent.length) return null;
 
-    post.comments.push({
+    const comment = {
         userId: user.id,
         username: user.username,
         globalName: user.globalName || null,
         content: cleanContent.slice(0, 1000),
         createdAt: Date.now()
-    });
+    };
 
+    post.comments.push(comment);
     saveData(data);
 
     return {
         commentsCount: post.comments.length,
-        comment: post.comments[post.comments.length - 1]
+        comment,
+        post
     };
-}
-
-function getComments(messageId) {
-    const post = getPostRecord(messageId);
-    return post ? post.comments || [] : [];
 }
 
 function getLikesCount(messageId) {
@@ -176,7 +164,7 @@ function buildCommentsEmbed(messageId) {
         return new EmbedBuilder()
             .setColor('#ED4245')
             .setTitle('❌ Comentários não encontrados')
-            .setDescription('Não foi possível localizar esta postagem no banco de dados.')
+            .setDescription('Não foi possível localizar esta postagem.')
             .setTimestamp();
     }
 
@@ -217,7 +205,11 @@ function buildCommentsEmbed(messageId) {
             { name: '👍 Curtidas', value: String(post.likes?.length || 0), inline: true },
             { name: '💬 Total de comentários', value: String(comments.length), inline: true }
         )
-        .setFooter({ text: comments.length > 10 ? 'Mostrando os 10 comentários mais recentes.' : 'Lista completa de comentários.' })
+        .setFooter({
+            text: comments.length > 10
+                ? 'Mostrando os 10 comentários mais recentes.'
+                : 'Lista completa de comentários.'
+        })
         .setTimestamp();
 }
 
@@ -228,12 +220,10 @@ async function refreshPostButtons(message) {
 }
 
 module.exports = {
-    ensurePostRecord,
-    getPostRecord,
     initPostRecord,
+    getPostRecord,
     toggleLike,
     addComment,
-    getComments,
     getLikesCount,
     getCommentsCount,
     buildPostActionRow,
