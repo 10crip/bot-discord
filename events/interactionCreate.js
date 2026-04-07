@@ -28,52 +28,68 @@ const EPHEMERAL_DELETE_DELAY = 25000;
 
 const dataDir = path.join(__dirname, '..', 'data');
 const ticketsFile = path.join(dataDir, 'tickets.json');
+const postSessionsFile = path.join(dataDir, 'post_sessions.json');
 
-function ensureTicketsFile() {
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+function ensureJsonFile(filePath) {
+    const dir = path.dirname(filePath);
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (!fs.existsSync(ticketsFile)) {
-        fs.writeFileSync(ticketsFile, JSON.stringify({}, null, 4), 'utf8');
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify({}, null, 4), 'utf8');
     }
 }
 
-function readTickets() {
-    ensureTicketsFile();
+function readJson(filePath) {
+    ensureJsonFile(filePath);
 
     try {
-        const raw = fs.readFileSync(ticketsFile, 'utf8');
+        const raw = fs.readFileSync(filePath, 'utf8');
         return raw ? JSON.parse(raw) : {};
     } catch (error) {
-        console.error('Erro ao ler tickets.json:', error);
+        console.error(`Erro ao ler ${path.basename(filePath)}:`, error);
         return {};
     }
 }
 
-function saveTickets(data) {
-    ensureTicketsFile();
+function saveJson(filePath, data) {
+    ensureJsonFile(filePath);
 
     try {
-        fs.writeFileSync(ticketsFile, JSON.stringify(data, null, 4), 'utf8');
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 4), 'utf8');
     } catch (error) {
-        console.error('Erro ao salvar tickets.json:', error);
+        console.error(`Erro ao salvar ${path.basename(filePath)}:`, error);
     }
 }
 
 function getTicketByChannelId(channelId) {
-    const tickets = readTickets();
+    const tickets = readJson(ticketsFile);
     return tickets[channelId] || null;
 }
 
 function setTicketByChannelId(channelId, payload) {
-    const tickets = readTickets();
+    const tickets = readJson(ticketsFile);
     tickets[channelId] = {
         ...(tickets[channelId] || {}),
         ...payload
     };
-    saveTickets(tickets);
+    saveJson(ticketsFile, tickets);
     return tickets[channelId];
+}
+
+function createPostSession(userId, guildId, channelId) {
+    const sessions = readJson(postSessionsFile);
+
+    sessions[userId] = {
+        guildId,
+        channelId,
+        step: 'awaiting_title',
+        createdAt: Date.now()
+    };
+
+    saveJson(postSessionsFile, sessions);
 }
 
 function buildFeedbackButtons(ticketChannelId) {
@@ -133,13 +149,11 @@ async function sendTicketFeedbackDM(client, ticketData) {
                 'Obrigado por fazer parte da comunidade.\n\n' +
                 'Seu ticket foi encerrado e queremos saber como foi sua experiência no atendimento.'
             )
-            .addFields(
-                {
-                    name: '⭐ Sua avaliação é importante',
-                    value: 'Escolha abaixo uma nota de **1 a 5 estrelas** para registrar seu feedback.',
-                    inline: false
-                }
-            )
+            .addFields({
+                name: '⭐ Sua avaliação é importante',
+                value: 'Escolha abaixo uma nota de **1 a 5 estrelas** para registrar seu feedback.',
+                inline: false
+            })
             .setFooter({
                 text: 'Equipe de atendimento • Avaliação de suporte'
             })
@@ -162,6 +176,62 @@ module.exports = {
 
     async execute(interaction) {
         try {
+            // ==================================================
+            // 🚀 CRIAR POSTAGEM PELO BOTÃO
+            // ==================================================
+            if (interaction.isButton()) {
+                const createPostCustomIds = [
+                    'criar_postagem',
+                    'criar_post',
+                    'postar',
+                    'postar_criar',
+                    'abrir_postagem'
+                ];
+
+                if (createPostCustomIds.includes(interaction.customId)) {
+                    if (!interaction.guild) {
+                        return replyTemp(interaction, {
+                            content: '❌ Esta interação só pode ser usada em servidor.'
+                        });
+                    }
+
+                    createPostSession(
+                        interaction.user.id,
+                        interaction.guild.id,
+                        interaction.channel.id
+                    );
+
+                    try {
+                        const embedDM = new EmbedBuilder()
+                            .setColor('#5865F2')
+                            .setTitle('🚀 Criação de Postagem')
+                            .setDescription(
+                                [
+                                    'Vamos criar sua postagem.',
+                                    '',
+                                    '📝 Envie agora o **título** da sua postagem no privado.',
+                                    '',
+                                    'Para cancelar o processo a qualquer momento, envie **cancelar**.'
+                                ].join('\n')
+                            )
+                            .setFooter({ text: 'Sistema de Postagens' })
+                            .setTimestamp();
+
+                        await interaction.user.send({ embeds: [embedDM] });
+
+                        return replyTemp(interaction, {
+                            content: '✅ Te enviei uma DM para criar sua postagem.'
+                        });
+                    } catch (error) {
+                        console.error('Erro ao enviar DM para criação de postagem:', error);
+
+                        return replyTemp(interaction, {
+                            content: '❌ Não consegui te chamar no privado. Ative sua DM e tente novamente.'
+                        });
+                    }
+                }
+            }
+
             // ==================================================
             // 🎫 CRIAR TICKET
             // ==================================================
@@ -310,7 +380,7 @@ module.exports = {
 
                 if (!memberHasStaffRole(interaction.member)) {
                     return replyTemp(interaction, {
-                        content: '❌ Apenas a equipe pode assumir tickets.'
+                        content: '❌ Apenas cargos definidos em `!setadm` podem assumir tickets.'
                     });
                 }
 
@@ -347,13 +417,11 @@ module.exports = {
                         'Pode ficar tranquilo, seu atendimento será realizado com atenção e profissionalismo.\n' +
                         'Explique em detalhes como podemos ajudá-lo.'
                     )
-                    .addFields(
-                        {
-                            name: '✅ Atendimento em andamento',
-                            value: 'Nossa equipe já está acompanhando este ticket.',
-                            inline: false
-                        }
-                    )
+                    .addFields({
+                        name: '✅ Atendimento em andamento',
+                        value: 'Nossa equipe já está acompanhando este ticket.',
+                        inline: false
+                    })
                     .setFooter({
                         text: 'Equipe de suporte • Atendimento oficial'
                     })
@@ -387,7 +455,7 @@ module.exports = {
 
                 if (!isOwner && !isStaff) {
                     return replyTemp(interaction, {
-                        content: '❌ Apenas o cliente do ticket ou a equipe podem fechá-lo.'
+                        content: '❌ Apenas o cliente do ticket ou cargos definidos em `!setadm` podem fechá-lo.'
                     });
                 }
 
@@ -553,7 +621,7 @@ module.exports = {
 
                     if (!memberHasStaffRole(interaction.member)) {
                         return replyTemp(interaction, {
-                            content: '❌ Você não tem permissão para gerenciar postagens.'
+                            content: '❌ Apenas cargos definidos em `!setadm` podem aprovar ou recusar postagens.'
                         });
                     }
 
@@ -601,7 +669,7 @@ module.exports = {
             }
 
             // ==================================================
-            // ❤️ INTERAÇÕES DAS POSTAGENS
+            // ❤️ INTERAÇÕES DAS POSTAGENS PUBLICADAS
             // ==================================================
             if (interaction.isButton()) {
                 if (interaction.customId.startsWith('post_like:')) {
@@ -615,7 +683,6 @@ module.exports = {
                     }
 
                     const result = toggleLike(messageId, interaction.user);
-
                     await refreshPostButtons(interaction.message);
 
                     const embed = new EmbedBuilder()
@@ -761,13 +828,11 @@ module.exports = {
         } catch (error) {
             console.error('Erro no interactionCreate:', error);
 
-            if (interaction.isButton() || interaction.isModalSubmit()) {
-                if (!interaction.replied && !interaction.deferred) {
-                    return interaction.reply({
-                        content: '❌ Ocorreu um erro ao processar esta interação.',
-                        ephemeral: true
-                    }).catch(() => null);
-                }
+            if ((interaction.isButton() || interaction.isModalSubmit()) && !interaction.replied && !interaction.deferred) {
+                return interaction.reply({
+                    content: '❌ Ocorreu um erro ao processar esta interação.',
+                    ephemeral: true
+                }).catch(() => null);
             }
         }
     }
