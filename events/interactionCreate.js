@@ -27,6 +27,7 @@ function garantirArquivoJson(filePath) {
 
 function lerJson(filePath) {
     garantirArquivoJson(filePath);
+
     try {
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
     } catch {
@@ -84,7 +85,9 @@ async function gerarTranscript(channel) {
                 padding: 20px;
                 line-height: 1.5;
             }
-            h1 { color: #5865F2; }
+            h1 {
+                color: #5865F2;
+            }
             .info {
                 margin-bottom: 20px;
                 padding: 12px;
@@ -98,7 +101,10 @@ async function gerarTranscript(channel) {
                 margin-bottom: 12px;
                 border-left: 4px solid #5865F2;
             }
-            .author { font-weight: bold; color: #58a6ff; }
+            .author {
+                font-weight: bold;
+                color: #58a6ff;
+            }
             .time {
                 color: #b5bac1;
                 font-size: 12px;
@@ -109,10 +115,16 @@ async function gerarTranscript(channel) {
                 white-space: pre-wrap;
                 word-break: break-word;
             }
-            .attachment { margin-top: 8px; font-size: 14px; }
+            .attachment {
+                margin-top: 8px;
+                font-size: 14px;
+            }
             .attachment a {
                 color: #79c0ff;
                 text-decoration: none;
+            }
+            .attachment a:hover {
+                text-decoration: underline;
             }
             .embed {
                 margin-top: 10px;
@@ -357,7 +369,7 @@ module.exports = {
             }
 
             // =========================
-            // SISTEMA DE TICKET - ABRIR
+            // SISTEMA DE TICKET - ABRIR PREMIUM
             // =========================
             if (
                 interaction.customId === 'abrir_ticket_suporte' ||
@@ -421,23 +433,44 @@ module.exports = {
                     });
 
                     const embed = new EmbedBuilder()
+                        .setColor(tipo === 'suporte' ? '#5865F2' : '#57F287')
                         .setTitle(`🎫 Ticket de ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`)
                         .setDescription(
-                            `${user}, seu ticket foi criado com sucesso.\n\n` +
-                            `Aguarde um membro da equipe assumir seu atendimento.`
+                            `Olá ${user}, seu atendimento foi aberto com sucesso.\n\n` +
+                            'Nossa equipe foi notificada e em breve alguém assumirá seu ticket.'
                         )
-                        .setColor(tipo === 'suporte' ? 'Blue' : 'Green')
-                        .setFooter({ text: `Tipo: ${tipo}` });
+                        .addFields(
+                            {
+                                name: '👤 Solicitante',
+                                value: `${user}`,
+                                inline: true
+                            },
+                            {
+                                name: '📂 Categoria',
+                                value: tipo.charAt(0).toUpperCase() + tipo.slice(1),
+                                inline: true
+                            },
+                            {
+                                name: '📌 Instruções',
+                                value: 'Explique seu caso com o máximo de detalhes possível para agilizar o atendimento.',
+                                inline: false
+                            }
+                        )
+                        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+                        .setFooter({ text: `${guild.name} • Sistema de Tickets` })
+                        .setTimestamp();
 
                     const row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId(`assumir_ticket_${user.id}`)
                             .setLabel('Assumir Ticket')
+                            .setEmoji('👤')
                             .setStyle(ButtonStyle.Success),
 
                         new ButtonBuilder()
                             .setCustomId(`fechar_ticket_${user.id}`)
                             .setLabel('Fechar Ticket')
+                            .setEmoji('🔒')
                             .setStyle(ButtonStyle.Danger)
                     );
 
@@ -447,10 +480,16 @@ module.exports = {
                         components: [row]
                     });
 
-                    return interaction.reply({
-                        content: `✅ Seu ticket foi criado: ${canal}`,
+                    await interaction.reply({
+                        content: `🎫 Seu atendimento foi criado com sucesso: ${canal}`,
                         ephemeral: true
                     });
+
+                    setTimeout(() => {
+                        interaction.deleteReply().catch(() => {});
+                    }, 30000);
+
+                    return;
                 } catch (error) {
                     console.error('Erro ao criar ticket:', error);
                     return interaction.reply({
@@ -506,7 +545,8 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setTitle('👤 Ticket assumido')
                         .setDescription(`${interaction.user} assumiu este ticket e agora está responsável pelo atendimento.`)
-                        .setColor('Green');
+                        .setColor('Green')
+                        .setTimestamp();
 
                     return interaction.reply({ embeds: [embed] });
                 } catch (error) {
