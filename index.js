@@ -86,10 +86,6 @@ if (fs.existsSync(eventsPath)) {
             // EVITA DUPLICIDADE EM messageCreate
             // ==========================================
             if (event.name === 'messageCreate') {
-                // Mantém só estes handlers de messageCreate:
-                // - antiSpam.js -> comandos + anti-spam
-                // - postSystem.js -> sistema de post por DM
-                // - mensagemBuilder.js -> sistema DM do !mensagem (se existir)
                 const allowedMessageCreateFiles = [
                     'antiSpam.js',
                     'postSystem.js',
@@ -102,26 +98,17 @@ if (fs.existsSync(eventsPath)) {
                 }
 
                 if (file === 'antiSpam.js') {
-                    if (antiSpamLoaded) {
-                        console.log(`⏭️ antiSpam duplicado ignorado: ${file}`);
-                        return;
-                    }
+                    if (antiSpamLoaded) return;
                     antiSpamLoaded = true;
                 }
 
                 if (file === 'postSystem.js') {
-                    if (postSystemLoaded) {
-                        console.log(`⏭️ postSystem duplicado ignorado: ${file}`);
-                        return;
-                    }
+                    if (postSystemLoaded) return;
                     postSystemLoaded = true;
                 }
 
                 if (file === 'mensagemBuilder.js') {
-                    if (mensagemBuilderLoaded) {
-                        console.log(`⏭️ mensagemBuilder duplicado ignorado: ${file}`);
-                        return;
-                    }
+                    if (mensagemBuilderLoaded) return;
                     mensagemBuilderLoaded = true;
                 }
             }
