@@ -1,55 +1,65 @@
-const { EmbedBuilder } = require('discord.js');
 const {
-    initPostRecord,
-    buildPostActionRow
-} = require('./postInteractions');
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} = require('discord.js');
+
+const { createPostRecord } = require('./postInteractions');
 
 async function publishApprovedPost({
     channel,
     title,
-    mediaUrl = null,
-    mediaType = null,
-    author = null
+    mediaUrl,
+    mediaType,
+    author
 }) {
-    if (!channel) {
-        throw new Error('Canal de postagem não informado.');
-    }
-
     const embed = new EmbedBuilder()
         .setColor('#5865F2')
-        .setTitle(title || 'Nova postagem')
+        .setTitle(title || 'Sem título')
+
+        // 👇 AQUI FICA O @ DO USUÁRIO (lado direito visual)
+        .setAuthor({
+            name: `@${author?.username || 'usuário'}`,
+            iconURL: author?.displayAvatarURL({ dynamic: true })
+        })
+
+        .setFooter({
+            text: `Post enviado por ${author?.username || 'usuário'}`
+        })
         .setTimestamp();
 
-    if (author) {
-        embed.setFooter({
-            text: `Post enviado por ${author.username}`,
-            iconURL: author.displayAvatarURL({ dynamic: true })
-        });
+    if (mediaUrl && mediaType?.startsWith('image/')) {
+        embed.setImage(mediaUrl);
     }
 
-    const payload = {
-        embeds: [embed]
-    };
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('post_like_temp')
+            .setLabel('Curtir (0)')
+            .setStyle(ButtonStyle.Success),
 
-    if (mediaUrl) {
-        if (mediaType && mediaType.startsWith('image/')) {
-            embed.setImage(mediaUrl);
-        } else if (mediaType && mediaType.startsWith('video/')) {
-            payload.content = `🎬 **Vídeo da postagem:** ${mediaUrl}`;
-            payload.files = [mediaUrl];
-        } else {
-            payload.content = `📎 **Mídia da postagem:** ${mediaUrl}`;
-        }
-    }
+        new ButtonBuilder()
+            .setCustomId('post_comment_temp')
+            .setLabel('Comentar (0)')
+            .setStyle(ButtonStyle.Primary),
 
-    const sentMessage = await channel.send(payload);
+        new ButtonBuilder()
+            .setCustomId('post_view_comments_temp')
+            .setLabel('Ver comentários')
+            .setStyle(ButtonStyle.Secondary)
+    );
 
-    initPostRecord(sentMessage, author?.id || null);
-
-    await sentMessage.edit({
-        content: payload.content || null,
+    const sentMessage = await channel.send({
         embeds: [embed],
-        components: [buildPostActionRow(sentMessage.id)]
+        components: [row]
+    });
+
+    // registra no sistema
+    await createPostRecord({
+        messageId: sentMessage.id,
+        channelId: channel.id,
+        authorId: author?.id
     });
 
     return sentMessage;
