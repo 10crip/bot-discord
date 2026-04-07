@@ -11,6 +11,7 @@ module.exports = {
                 { name: '!ping', value: 'Mostra a latência do bot.', inline: false },
                 { name: '!help', value: 'Mostra esta lista de comandos.', inline: false },
                 { name: '!avatar @usuário', value: 'Mostra o avatar de um usuário.', inline: false },
+                { name: '!painel', value: 'Envia o painel de tickets no canal configurado.', inline: false },
                 { name: '!saldo', value: 'Mostra seu saldo.', inline: false },
                 { name: '!daily', value: 'Resgata recompensa diária.', inline: false },
                 { name: '!work', value: 'Trabalha para ganhar moedas.', inline: false },
