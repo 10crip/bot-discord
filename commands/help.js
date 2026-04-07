@@ -13,9 +13,8 @@ module.exports = {
             .setDescription(
                 `Bem-vindo ao sistema de ajuda de **${guildName}**.\n\n` +
                 'Aqui você encontra todos os comandos disponíveis, organizados por categoria.\n\n' +
-                'Use os comandos corretamente para aproveitar todos os recursos do bot. 🚀'
+                'O sistema de postagens agora possui **curtidas** e **comentários por interação**. 🚀'
             )
-
             .addFields(
                 {
                     name: '╭── 👥 Comandos de Membros',
@@ -33,7 +32,6 @@ module.exports = {
                         '```',
                     inline: false
                 },
-
                 {
                     name: '╰── 🛠️ Comandos de Staff',
                     value:
@@ -49,17 +47,23 @@ module.exports = {
                         '```',
                     inline: false
                 },
-
+                {
+                    name: '💬 Interações nas postagens',
+                    value:
+                        '• **Curtir** → adiciona ou remove sua curtida.\n' +
+                        '• **Comentar** → abre um modal para enviar comentário.\n' +
+                        '• **Ver comentários** → mostra os comentários da postagem.',
+                    inline: false
+                },
                 {
                     name: '⚠️ Observações',
                     value:
                         '• Alguns comandos requerem permissões específicas.\n' +
                         '• Use `!setadm` para definir quem é staff.\n' +
-                        '• O sistema funciona por servidor (multi-guild).',
+                        '• O sistema funciona por servidor.',
                     inline: false
                 }
             )
-
             .setThumbnail(guildIcon)
             .setFooter({
                 text: `Solicitado por ${message.author.username}`,
