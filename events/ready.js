@@ -1,25 +1,30 @@
 const CATEGORY_ID = '1491183093749387364';
 const COUNTER_CHANNEL_ID = '1491197677944180816';
 
+function getMembersInCallCount(guild) {
+    if (!guild) return 0;
+
+    let totalMembersInCall = 0;
+
+    for (const [, voiceState] of guild.voiceStates.cache) {
+        const channel = voiceState.channel;
+        if (!channel) continue;
+
+        if (channel.parentId === CATEGORY_ID) {
+            totalMembersInCall++;
+        }
+    }
+
+    return totalMembersInCall;
+}
+
 async function updateCallCounter(client) {
     try {
-        const guilds = client.guilds.cache;
-
-        for (const [, guild] of guilds) {
+        for (const [, guild] of client.guilds.cache) {
             const counterChannel = guild.channels.cache.get(COUNTER_CHANNEL_ID);
             if (!counterChannel) continue;
 
-            const voiceChannelsInCategory = guild.channels.cache.filter(channel =>
-                channel.parentId === CATEGORY_ID &&
-                (channel.type === 2 || channel.type === 13)
-            );
-
-            let totalMembersInCall = 0;
-
-            for (const [, channel] of voiceChannelsInCategory) {
-                totalMembersInCall += channel.members.size;
-            }
-
+            const totalMembersInCall = getMembersInCallCount(guild);
             const newName = `${totalMembersInCall} membros em call`;
 
             if (counterChannel.name !== newName) {
@@ -40,7 +45,9 @@ module.exports = {
     async execute(client) {
         console.log(`✅ Bot online como ${client.user.tag}`);
 
-        // Atualiza a contagem assim que o bot ligar
-        await updateCallCounter(client);
+        // Espera o cache carregar corretamente
+        setTimeout(async () => {
+            await updateCallCounter(client);
+        }, 2000);
     }
 };
