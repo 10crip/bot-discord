@@ -26,6 +26,11 @@ const TICKET_CATEGORY_ID = '1490905371601145939';
 const FEEDBACK_CHANNEL_ID = '1490951429962203267';
 const EPHEMERAL_DELETE_DELAY = 20000;
 
+const CALL_PANEL_CHANNEL_ID = '1491204291887763599';
+const CALL_CATEGORY_ID = '1491183093749387364';
+const CALL_CREATE_BUTTON_ID = 'criar_sua_call';
+const CALL_CREATE_MODAL_ID = 'modal_criar_call';
+
 const dataDir = path.join(__dirname, '..', 'data');
 const ticketsFile = path.join(dataDir, 'tickets.json');
 const postSessionsFile = path.join(dataDir, 'post_sessions.json');
@@ -171,11 +176,145 @@ async function sendTicketFeedbackDM(client, ticketData) {
     }
 }
 
+function sanitizeChannelName(text) {
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 90) || 'call';
+}
+
 module.exports = {
     name: 'interactionCreate',
 
     async execute(interaction) {
         try {
+            // ==================================================
+            // 🎙️ PAINEL DE CRIAR CALL
+            // ==================================================
+            if (interaction.isButton() && interaction.customId === CALL_CREATE_BUTTON_ID) {
+                if (!interaction.guild) {
+                    return replyTemp(interaction, {
+                        content: '❌ Esta interação só pode ser usada em servidor.'
+                    });
+                }
+
+                if (interaction.channelId !== CALL_PANEL_CHANNEL_ID) {
+                    return replyTemp(interaction, {
+                        content: '❌ Este botão só pode ser usado no painel oficial de calls.'
+                    });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId(CALL_CREATE_MODAL_ID)
+                    .setTitle('Criar sua call');
+
+                const nameInput = new TextInputBuilder()
+                    .setCustomId('call_name')
+                    .setLabel('Nome da call')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('Ex: Resenha, Duozin, Sala do Kauã')
+                    .setRequired(true)
+                    .setMaxLength(40);
+
+                const limitInput = new TextInputBuilder()
+                    .setCustomId('call_limit')
+                    .setLabel('Quantidade de membros')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('Ex: 2, 5, 10, 20')
+                    .setRequired(true)
+                    .setMaxLength(2);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(nameInput),
+                    new ActionRowBuilder().addComponents(limitInput)
+                );
+
+                return interaction.showModal(modal);
+            }
+
+            if (interaction.isModalSubmit() && interaction.customId === CALL_CREATE_MODAL_ID) {
+                if (!interaction.guild) {
+                    return replyTemp(interaction, {
+                        content: '❌ Esta interação só pode ser usada em servidor.'
+                    });
+                }
+
+                const callNameRaw = interaction.fields.getTextInputValue('call_name');
+                const callLimitRaw = interaction.fields.getTextInputValue('call_limit');
+
+                const callName = callNameRaw.trim();
+                const userLimit = Number(callLimitRaw);
+
+                if (!callName) {
+                    return replyTemp(interaction, {
+                        content: '❌ Você precisa informar um nome para a call.'
+                    });
+                }
+
+                if (!Number.isInteger(userLimit) || userLimit < 1 || userLimit > 99) {
+                    return replyTemp(interaction, {
+                        content: '❌ A quantidade de membros deve ser um número entre 1 e 99.'
+                    });
+                }
+
+                const category = interaction.guild.channels.cache.get(CALL_CATEGORY_ID);
+
+                if (!category || category.type !== ChannelType.GuildCategory) {
+                    return replyTemp(interaction, {
+                        content: '❌ A categoria configurada para criar calls não foi encontrada.'
+                    });
+                }
+
+                const safeCallName = sanitizeChannelName(callName);
+
+                const createdChannel = await interaction.guild.channels.create({
+                    name: safeCallName,
+                    type: ChannelType.GuildVoice,
+                    parent: CALL_CATEGORY_ID,
+                    userLimit,
+                    permissionOverwrites: [
+                        {
+                            id: interaction.guild.roles.everyone.id,
+                            allow: [
+                                PermissionsBitField.Flags.ViewChannel,
+                                PermissionsBitField.Flags.Connect,
+                                PermissionsBitField.Flags.Speak
+                            ]
+                        }
+                    ]
+                });
+
+                const embed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle('✅ Call criada com sucesso')
+                    .setDescription(`Sua call foi criada em ${createdChannel}`)
+                    .addFields(
+                        {
+                            name: 'Nome',
+                            value: callName,
+                            inline: true
+                        },
+                        {
+                            name: 'Limite de membros',
+                            value: String(userLimit),
+                            inline: true
+                        }
+                    )
+                    .setFooter({
+                        text: 'Sistema de calls'
+                    })
+                    .setTimestamp();
+
+                return replyTemp(interaction, {
+                    embeds: [embed]
+                });
+            }
+
             // ==================================================
             // 🚀 CRIAR POSTAGEM PELO BOTÃO
             // ==================================================
