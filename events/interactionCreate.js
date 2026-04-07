@@ -24,7 +24,7 @@ const {
 
 const TICKET_CATEGORY_ID = '1490905371601145939';
 const FEEDBACK_CHANNEL_ID = '1490951429962203267';
-const EPHEMERAL_DELETE_DELAY = 25000;
+const EPHEMERAL_DELETE_DELAY = 20000;
 
 const dataDir = path.join(__dirname, '..', 'data');
 const ticketsFile = path.join(dataDir, 'tickets.json');
