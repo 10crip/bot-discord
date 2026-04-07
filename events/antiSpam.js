@@ -1,7 +1,5 @@
-const { EmbedBuilder } = require('discord.js');
-
-const usersMap = new Map();
 const PREFIX = process.env.PREFIX || '!';
+const usersMap = new Map();
 
 function isSpam(message) {
     const now = Date.now();
@@ -27,13 +25,7 @@ function isSpam(message) {
     const tooManyEmojis = (message.content.match(/<a?:\w+:\d+>|[\u{1F300}-\u{1FAFF}]/gu) || []).length >= 8;
 
     return {
-        spam: tooFast || repeated || tooManyMentions || tooManyEmojis,
-        flags: {
-            tooFast,
-            repeated,
-            tooManyMentions,
-            tooManyEmojis
-        }
+        spam: tooFast || repeated || tooManyMentions || tooManyEmojis
     };
 }
 
@@ -45,13 +37,13 @@ module.exports = {
             if (!message || !message.author) return;
             if (message.author.bot) return;
 
-            // DMs não passam por este evento
-            if (!message.guild) return;
+            // ==========================================
+            // PROCESSA COMANDOS SOMENTE EM SERVIDOR
+            // ==========================================
+            if (message.guild && message.content.startsWith(PREFIX)) {
+                if (message.__commandHandled) return;
+                message.__commandHandled = true;
 
-            // =========================
-            // COMANDOS
-            // =========================
-            if (message.content.startsWith(PREFIX)) {
                 const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
                 const commandName = args.shift()?.toLowerCase();
 
@@ -62,23 +54,26 @@ module.exports = {
 
                 try {
                     await command.execute(message, args);
-
-                    // apaga a mensagem do usuário após o comando responder
-                    setTimeout(async () => {
-                        await message.delete().catch(() => null);
-                    }, 800);
                 } catch (error) {
                     console.error(`Erro ao executar comando ${commandName}:`, error);
-
                     await message.reply('❌ Ocorreu um erro ao executar este comando.').catch(() => null);
                 }
+
+                setTimeout(async () => {
+                    await message.delete().catch(() => null);
+                }, 800);
 
                 return;
             }
 
-            // =========================
+            // ==========================================
+            // IGNORA DMs
+            // ==========================================
+            if (!message.guild) return;
+
+            // ==========================================
             // ANTI-SPAM
-            // =========================
+            // ==========================================
             const spamCheck = isSpam(message);
 
             if (spamCheck.spam) {
@@ -95,7 +90,7 @@ module.exports = {
                 }
             }
         } catch (error) {
-            console.error('Erro no evento antiSpam/messageCreate:', error);
+            console.error('Erro no antiSpam.js:', error);
         }
     }
 };
