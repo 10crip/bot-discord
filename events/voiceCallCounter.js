@@ -21,6 +21,25 @@ function getMembersInCallCount(guild) {
     return totalMembersInCall;
 }
 
+async function deleteEmptyTemporaryCalls(guild) {
+    try {
+        const voiceChannelsInCategory = guild.channels.cache.filter(channel =>
+            channel.parentId === CATEGORY_ID &&
+            channel.type === 2
+        );
+
+        for (const [, channel] of voiceChannelsInCategory) {
+            if (channel.id === COUNTER_CHANNEL_ID) continue;
+
+            if (channel.members.size === 0) {
+                await channel.delete().catch(() => null);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Erro ao apagar calls vazias:', error);
+    }
+}
+
 async function updateCallCounter(guild) {
     try {
         if (!guild) return;
@@ -35,12 +54,10 @@ async function updateCallCounter(guild) {
         const cachedCount = countCache.get(guild.id);
         const newName = `${totalMembersInCall} membros em call`;
 
-        // Cache inteligente: não faz nada se a contagem não mudou
         if (cachedCount === totalMembersInCall && counterChannel.name === newName) {
             return;
         }
 
-        // Só renomeia se realmente precisar
         if (counterChannel.name !== newName) {
             await counterChannel.setName(newName).catch(err => {
                 console.error('❌ Erro ao atualizar nome do canal de contagem:', err);
@@ -63,6 +80,7 @@ function scheduleUpdate(guild) {
 
     const timer = setTimeout(async () => {
         updateTimers.delete(guild.id);
+        await deleteEmptyTemporaryCalls(guild);
         await updateCallCounter(guild);
     }, 1000);
 
@@ -82,7 +100,6 @@ module.exports = {
             const oldWasInCategory = oldChannel?.parentId === CATEGORY_ID;
             const newIsInCategory = newChannel?.parentId === CATEGORY_ID;
 
-            // Só atualiza se a mudança envolver a categoria monitorada
             if (!oldWasInCategory && !newIsInCategory) return;
 
             scheduleUpdate(guild);
