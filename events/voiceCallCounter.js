@@ -1,8 +1,48 @@
+const fs = require('fs');
+const path = require('path');
+
 const CATEGORY_ID = '1491183093749387364';
 const COUNTER_CHANNEL_ID = '1491197677944180816';
 
+const dataDir = path.join(__dirname, '..', 'data');
+const tempCallsFile = path.join(dataDir, 'temp_calls.json');
+
 const countCache = new Map();
 const updateTimers = new Map();
+
+function ensureJsonFile(filePath) {
+    const dir = path.dirname(filePath);
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify({}, null, 4), 'utf8');
+    }
+}
+
+function readJson(filePath) {
+    ensureJsonFile(filePath);
+
+    try {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+        console.error(`Erro ao ler ${path.basename(filePath)}:`, error);
+        return {};
+    }
+}
+
+function saveJson(filePath, data) {
+    ensureJsonFile(filePath);
+
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 4), 'utf8');
+    } catch (error) {
+        console.error(`Erro ao salvar ${path.basename(filePath)}:`, error);
+    }
+}
 
 function getMembersInCallCount(guild) {
     if (!guild) return 0;
@@ -23,20 +63,42 @@ function getMembersInCallCount(guild) {
 
 async function deleteEmptyTemporaryCalls(guild) {
     try {
-        const voiceChannelsInCategory = guild.channels.cache.filter(channel =>
-            channel.parentId === CATEGORY_ID &&
-            channel.type === 2
-        );
+        if (!guild) return;
 
-        for (const [, channel] of voiceChannelsInCategory) {
-            if (channel.id === COUNTER_CHANNEL_ID) continue;
+        const tempCalls = readJson(tempCallsFile);
+        let changed = false;
+
+        for (const channelId of Object.keys(tempCalls)) {
+            const record = tempCalls[channelId];
+
+            if (!record || record.guildId !== guild.id) continue;
+
+            const channel = guild.channels.cache.get(channelId);
+
+            if (!channel) {
+                delete tempCalls[channelId];
+                changed = true;
+                continue;
+            }
+
+            if (channel.parentId !== CATEGORY_ID || channel.type !== 2) {
+                delete tempCalls[channelId];
+                changed = true;
+                continue;
+            }
 
             if (channel.members.size === 0) {
                 await channel.delete().catch(() => null);
+                delete tempCalls[channelId];
+                changed = true;
             }
         }
+
+        if (changed) {
+            saveJson(tempCallsFile, tempCalls);
+        }
     } catch (error) {
-        console.error('❌ Erro ao apagar calls vazias:', error);
+        console.error('❌ Erro ao apagar calls temporárias vazias:', error);
     }
 }
 
@@ -89,7 +151,7 @@ function scheduleUpdate(guild) {
 
 module.exports = {
     name: 'voiceStateUpdate',
-    async execute(oldState, newState, client) {
+    async execute(oldState, newState) {
         try {
             const guild = newState.guild || oldState.guild;
             if (!guild) return;
