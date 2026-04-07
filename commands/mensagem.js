@@ -1,78 +1,55 @@
 const {
-    EmbedBuilder
-} = require('discord.js');
+  EmbedBuilder
+} = require("discord.js");
 
 const {
-    getSessions,
-    saveSessions,
-    criarSessao,
-    buildPreviewEmbed,
-    buildEditorRows
-} = require('../utils/messageBuilder');
+  createSession,
+  deleteSession,
+  cleanupExpiredSessions
+} = require("../utils/mensagemSessions");
+
+const {
+  buildTemplateSelectionEmbed,
+  buildTemplateSelectionComponents
+} = require("../utils/mensagemTemplates");
 
 module.exports = {
-    name: 'mensagem',
+  name: "mensagem",
+  description: "Abre o editor profissional de mensagens em DM.",
 
-    async execute(message) {
-        try {
-            if (!message.guild) return;
+  async execute(message) {
+    if (!message.guild || message.author.bot) return;
 
-            const sessions = getSessions();
-            sessions[message.author.id] = criarSessao(
-                message.author.id,
-                message.guild.id,
-                message.channel.id
-            );
-            saveSessions(sessions);
+    cleanupExpiredSessions();
+    deleteSession(message.author.id);
 
-            await message.delete().catch(() => {});
+    try {
+      const dm = await message.author.createDM();
 
-            const dm = await message.author.createDM();
+      createSession(message.author.id, {
+        userId: message.author.id,
+        guildId: message.guild.id,
+        channelId: message.channel.id,
+        dmChannelId: dm.id
+      });
 
-            const sessao = sessions[message.author.id];
+      const embed = buildTemplateSelectionEmbed();
+      const components = buildTemplateSelectionComponents();
 
-            const intro = new EmbedBuilder()
-                .setColor('#5865F2')
-                .setTitle('🧩 Editor de Mensagens Premium')
-                .setDescription(
-                    'Escolha um template e edite sua mensagem usando os botões abaixo.\n\n' +
-                    'Você pode definir:\n' +
-                    '• título\n' +
-                    '• texto\n' +
-                    '• cor\n' +
-                    '• foto principal\n' +
-                    '• foto no canto direito superior\n' +
-                    '• ícone do aviso\n' +
-                    '• rodapé\n\n' +
-                    'Quando terminar, clique em **Publicar**.'
-                )
-                .setFooter({ text: 'Editor de templates • via DM' })
-                .setTimestamp();
+      await dm.send({
+        embeds: [embed],
+        components
+      });
 
-            const preview = buildPreviewEmbed(sessao, message.author);
-            const rows = buildEditorRows(sessao);
+      const confirm = new EmbedBuilder()
+        .setColor("#57F287")
+        .setDescription("📩 Te enviei uma DM com o editor do `!mensagem 2.1`.");
 
-            const editorMessage = await dm.send({
-                embeds: [intro, preview],
-                components: rows
-            });
+      await message.reply({ embeds: [confirm] });
+    } catch (error) {
+      console.error("Erro no comando mensagem:", error);
 
-            sessions[message.author.id].editorMessageId = editorMessage.id;
-            saveSessions(sessions);
-
-            const aviso = await message.channel.send({
-                content: `${message.author} 📩 Te enviei o editor de mensagens no privado.`
-            });
-
-            setTimeout(() => {
-                aviso.delete().catch(() => {});
-            }, 10000);
-        } catch (error) {
-            console.error('Erro no comando mensagem:', error);
-
-            await message.reply(
-                '❌ Não consegui abrir o editor no seu privado. Verifique se sua DM está aberta.'
-            ).catch(() => {});
-        }
+      await message.reply("❌ Não consegui te enviar DM. Ative suas mensagens privadas e tente novamente.");
     }
+  }
 };
