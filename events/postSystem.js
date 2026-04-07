@@ -1,374 +1,265 @@
-const {
-    Events,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    PermissionsBitField
-} = require('discord.js');
-const {
-    getGuildConfig
-} = require('../utils/guildConfig');
-const {
-    isStaff
-} = require('../utils/staff');
-const {
-    createPendingPost,
-    getPendingPostById,
-    updatePendingPost
-} = require('../utils/pendingPosts');
+const fs = require('fs');
+const path = require('path');
+const { EmbedBuilder } = require('discord.js');
+const { sendPostToApproval } = require('../utils/postApprovalSystem');
 
-function isImage(attachment) {
-    if (!attachment?.contentType && !attachment?.name) return false;
+const dataDir = path.join(__dirname, '..', 'data');
+const sessionsFile = path.join(dataDir, 'post_sessions.json');
 
-    const contentType = attachment.contentType || '';
-    const name = attachment.name || '';
-
-    return contentType.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(name);
-}
-
-function isVideo(attachment) {
-    if (!attachment?.contentType && !attachment?.name) return false;
-
-    const contentType = attachment.contentType || '';
-    const name = attachment.name || '';
-
-    return contentType.startsWith('video/') || /\.(mp4|mov|webm|mkv)$/i.test(name);
-}
-
-function buildApprovalEmbed(client, guild, post) {
-    const author = client.users.cache.get(post.authorId);
-
-    const embed = new EmbedBuilder()
-        .setTitle('📨 Nova postagem para aprovação')
-        .setColor('#FEE75C')
-        .addFields(
-            { name: 'Autor', value: author ? `${author.tag} (${author.id})` : `<@${post.authorId}>`, inline: false },
-            { name: 'Título', value: post.title || 'Sem título', inline: false },
-            { name: 'Tipo de mídia', value: post.mediaType || 'desconhecido', inline: true },
-            { name: 'Post ID', value: post.id, inline: true }
-        )
-        .setFooter({ text: `Servidor: ${guild.name}` })
-        .setTimestamp(new Date(post.createdAt));
-
-    if (post.mediaType === 'image' && post.attachmentUrl) {
-        embed.setImage(post.attachmentUrl);
-    } else if (post.attachmentUrl) {
-        embed.addFields({
-            name: 'Arquivo',
-            value: `[Clique para visualizar](${post.attachmentUrl})`,
-            inline: false
-        });
+function ensureFile() {
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    return embed;
-}
-
-function buildPublicPostEmbed(client, post) {
-    const author = client.users.cache.get(post.authorId);
-
-    const embed = new EmbedBuilder()
-        .setTitle(post.title || 'Nova postagem')
-        .setColor('#5865F2')
-        .setFooter({
-            text: author ? `Postado por ${author.tag}` : `Postado por ${post.authorId}`
-        })
-        .setTimestamp(new Date());
-
-    if (post.mediaType === 'image' && post.attachmentUrl) {
-        embed.setImage(post.attachmentUrl);
-    } else if (post.mediaType === 'video' && post.attachmentUrl) {
-        embed.setDescription(`🎬 **Vídeo enviado**\n[Assistir/Vizualizar vídeo](${post.attachmentUrl})`);
-    } else if (post.attachmentUrl) {
-        embed.setDescription(`[Abrir arquivo](${post.attachmentUrl})`);
+    if (!fs.existsSync(sessionsFile)) {
+        fs.writeFileSync(sessionsFile, JSON.stringify({}, null, 4), 'utf8');
     }
-
-    return embed;
 }
 
-async function askQuestion(channel, userId, question, time = 120000) {
-    await channel.send(question);
+function readSessions() {
+    ensureFile();
 
-    const collected = await channel.awaitMessages({
-        filter: (msg) => msg.author.id === userId,
-        max: 1,
-        time,
-        errors: ['time']
-    });
+    try {
+        const raw = fs.readFileSync(sessionsFile, 'utf8');
+        return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+        console.error('Erro ao ler post_sessions.json:', error);
+        return {};
+    }
+}
 
-    return collected.first();
+function saveSessions(data) {
+    ensureFile();
+
+    try {
+        fs.writeFileSync(sessionsFile, JSON.stringify(data, null, 4), 'utf8');
+    } catch (error) {
+        console.error('Erro ao salvar post_sessions.json:', error);
+    }
+}
+
+function getSession(userId) {
+    const sessions = readSessions();
+    return sessions[userId] || null;
+}
+
+function setSession(userId, sessionData) {
+    const sessions = readSessions();
+    sessions[userId] = sessionData;
+    saveSessions(sessions);
+}
+
+function removeSession(userId) {
+    const sessions = readSessions();
+    if (sessions[userId]) {
+        delete sessions[userId];
+        saveSessions(sessions);
+    }
+}
+
+function isImage(contentType) {
+    return typeof contentType === 'string' && contentType.startsWith('image/');
+}
+
+function isVideo(contentType) {
+    return typeof contentType === 'string' && contentType.startsWith('video/');
 }
 
 module.exports = {
-    name: Events.InteractionCreate,
+    name: 'messageCreate',
 
-    async execute(interaction) {
+    async execute(message) {
         try {
-            if (interaction.isButton()) {
-                if (interaction.customId === 'posting_iniciar') {
-                    if (!interaction.guild) {
-                        return interaction.reply({
-                            content: '❌ Este botão só funciona dentro de um servidor.',
-                            ephemeral: true
-                        });
-                    }
+            if (message.author.bot) return;
+            if (message.guild) return;
 
-                    const user = interaction.user;
+            const session = getSession(message.author.id);
+            if (!session) return;
 
-                    await interaction.reply({
-                        content: '📩 Verifique sua DM para continuar a postagem.',
-                        ephemeral: true
+            const userInput = message.content?.trim()?.toLowerCase();
+
+            if (userInput === 'cancelar') {
+                removeSession(message.author.id);
+
+                const cancelEmbed = new EmbedBuilder()
+                    .setColor('#ED4245')
+                    .setTitle('❌ Envio cancelado')
+                    .setDescription('Sua sessão de postagem foi cancelada com sucesso.')
+                    .setTimestamp();
+
+                return message.reply({ embeds: [cancelEmbed] });
+            }
+
+            if (!session.guildId) {
+                removeSession(message.author.id);
+
+                const errorEmbed = new EmbedBuilder()
+                    .setColor('#ED4245')
+                    .setTitle('❌ Sessão inválida')
+                    .setDescription('Não foi possível identificar o servidor da sua postagem. Inicie o processo novamente.')
+                    .setTimestamp();
+
+                return message.reply({ embeds: [errorEmbed] });
+            }
+
+            if (session.step === 'awaiting_title') {
+                const title = message.content?.trim();
+
+                if (!title || title.length < 3) {
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#FEE75C')
+                                .setTitle('⚠️ Título inválido')
+                                .setDescription('Envie um título com pelo menos **3 caracteres**.')
+                                .setTimestamp()
+                        ]
                     });
-
-                    let dmChannel;
-                    try {
-                        dmChannel = await user.createDM();
-                    } catch {
-                        return interaction.followUp({
-                            content: '❌ Não consegui te chamar no privado. Ative sua DM e tente novamente.',
-                            ephemeral: true
-                        });
-                    }
-
-                    const intro = new EmbedBuilder()
-                        .setTitle('📝 Criar postagem')
-                        .setColor('#5865F2')
-                        .setDescription(
-                            [
-                                'Vamos montar sua postagem.',
-                                '',
-                                '**Etapa 1:** envie o título',
-                                '**Etapa 2:** envie a imagem ou vídeo'
-                            ].join('\n')
-                        );
-
-                    await dmChannel.send({ embeds: [intro] });
-
-                    let titleMessage;
-                    try {
-                        titleMessage = await askQuestion(
-                            dmChannel,
-                            user.id,
-                            '📌 Envie agora o **título** da postagem.'
-                        );
-                    } catch {
-                        return dmChannel.send('⏰ Tempo esgotado. Inicie novamente pelo painel.');
-                    }
-
-                    const title = titleMessage.content?.trim();
-                    if (!title) {
-                        return dmChannel.send('❌ Título inválido. Inicie novamente pelo painel.');
-                    }
-
-                    let mediaMessage;
-                    try {
-                        mediaMessage = await askQuestion(
-                            dmChannel,
-                            user.id,
-                            '🖼️ Agora envie a **imagem ou vídeo** da postagem.'
-                        );
-                    } catch {
-                        return dmChannel.send('⏰ Tempo esgotado. Inicie novamente pelo painel.');
-                    }
-
-                    const attachment = mediaMessage.attachments.first();
-                    if (!attachment) {
-                        return dmChannel.send('❌ Você precisa enviar uma imagem ou vídeo. Inicie novamente pelo painel.');
-                    }
-
-                    let mediaType = 'file';
-                    if (isImage(attachment)) mediaType = 'image';
-                    if (isVideo(attachment)) mediaType = 'video';
-
-                    if (!['image', 'video'].includes(mediaType)) {
-                        return dmChannel.send('❌ Apenas imagens e vídeos são aceitos.');
-                    }
-
-                    const pendingPost = createPendingPost({
-                        guildId: interaction.guild.id,
-                        authorId: user.id,
-                        title,
-                        mediaType,
-                        attachmentUrl: attachment.url,
-                        attachmentName: attachment.name || 'arquivo',
-                        status: 'pending',
-                        createdAt: new Date().toISOString(),
-                        approvalChannelId: null,
-                        approvalMessageId: null
-                    });
-
-                    const guildConfig = getGuildConfig(interaction.guild.id);
-
-                    await dmChannel.send('✅ Sua postagem foi recebida e entrou na fila de aprovação.');
-
-                    if (!guildConfig.approvalChannelId) {
-                        return dmChannel.send(
-                            '⚠️ Ainda não existe um canal de aprovação configurado neste servidor.\nPeça para um staff usar `!verificarpost` no canal desejado.'
-                        );
-                    }
-
-                    const approvalChannel = interaction.guild.channels.cache.get(guildConfig.approvalChannelId);
-                    if (!approvalChannel) {
-                        return dmChannel.send(
-                            '⚠️ O canal de aprovação configurado não foi encontrado. Peça para a staff usar `!verificarpost` novamente.'
-                        );
-                    }
-
-                    const row = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`post_approve_${pendingPost.id}`)
-                            .setLabel('Aprovar')
-                            .setStyle(ButtonStyle.Success),
-                        new ButtonBuilder()
-                            .setCustomId(`post_reject_${pendingPost.id}`)
-                            .setLabel('Recusar')
-                            .setStyle(ButtonStyle.Danger)
-                    );
-
-                    const approvalEmbed = buildApprovalEmbed(interaction.client, interaction.guild, pendingPost);
-
-                    const files = [];
-                    if (pendingPost.mediaType === 'video') {
-                        files.push(pendingPost.attachmentUrl);
-                    }
-
-                    const sentApprovalMessage = await approvalChannel.send({
-                        embeds: [approvalEmbed],
-                        components: [row],
-                        files
-                    });
-
-                    updatePendingPost(pendingPost.id, {
-                        approvalChannelId: approvalChannel.id,
-                        approvalMessageId: sentApprovalMessage.id
-                    });
-
-                    return;
                 }
 
-                if (interaction.customId.startsWith('post_approve_') || interaction.customId.startsWith('post_reject_')) {
-                    if (!interaction.guild) {
-                        return interaction.reply({
-                            content: '❌ Esta ação só funciona dentro de um servidor.',
-                            ephemeral: true
-                        });
-                    }
+                if (title.length > 256) {
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#FEE75C')
+                                .setTitle('⚠️ Título muito grande')
+                                .setDescription('O título pode ter no máximo **256 caracteres**.')
+                                .setTimestamp()
+                        ]
+                    });
+                }
 
-                    if (!isStaff(interaction.member, interaction.guild.id)) {
-                        return interaction.reply({
-                            content: '❌ Você não tem permissão para aprovar ou recusar postagens.',
-                            ephemeral: true
-                        });
-                    }
+                setSession(message.author.id, {
+                    ...session,
+                    step: 'awaiting_media',
+                    title
+                });
 
-                    const isApprove = interaction.customId.startsWith('post_approve_');
-                    const postId = interaction.customId.split('_').slice(2).join('_');
-                    const post = getPendingPostById(postId);
+                const nextEmbed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle('🖼️ Agora envie a mídia')
+                    .setDescription(
+                        [
+                            'Envie agora a **imagem ou vídeo** da postagem.',
+                            '',
+                            'Formatos aceitos:',
+                            '• **Imagem**',
+                            '• **Vídeo**',
+                            '',
+                            'Caso queira cancelar, envie **cancelar**.'
+                        ].join('\n')
+                    )
+                    .setTimestamp();
 
-                    if (!post || post.guildId !== interaction.guild.id) {
-                        return interaction.reply({
-                            content: '❌ Esta postagem não foi encontrada.',
-                            ephemeral: true
-                        });
-                    }
+                return message.reply({ embeds: [nextEmbed] });
+            }
 
-                    if (post.status !== 'pending') {
-                        return interaction.reply({
-                            content: '⚠️ Esta postagem já foi processada.',
-                            ephemeral: true
-                        });
-                    }
+            if (session.step === 'awaiting_media') {
+                const attachment = message.attachments.first();
 
-                    const author = await interaction.client.users.fetch(post.authorId).catch(() => null);
+                if (!attachment) {
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#FEE75C')
+                                .setTitle('⚠️ Nenhuma mídia encontrada')
+                                .setDescription('Você precisa enviar uma **imagem** ou **vídeo** em anexo.')
+                                .setTimestamp()
+                        ]
+                    });
+                }
 
-                    if (isApprove) {
-                        let targetChannel = null;
+                const mediaType = attachment.contentType || '';
+                const mediaUrl = attachment.url;
 
-                        if (process.env.POST_CHANNEL_ID) {
-                            targetChannel = interaction.guild.channels.cache.get(process.env.POST_CHANNEL_ID) || null;
-                        }
+                if (!isImage(mediaType) && !isVideo(mediaType)) {
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#FEE75C')
+                                .setTitle('⚠️ Tipo de arquivo inválido')
+                                .setDescription('Envie apenas **imagem** ou **vídeo**.')
+                                .setTimestamp()
+                        ]
+                    });
+                }
 
-                        if (!targetChannel) {
-                            targetChannel = interaction.channel;
-                        }
+                const guild = await message.client.guilds.fetch(session.guildId).catch(() => null);
 
-                        const publicEmbed = buildPublicPostEmbed(interaction.client, post);
+                if (!guild) {
+                    removeSession(message.author.id);
 
-                        const sendOptions = {
-                            embeds: [publicEmbed]
-                        };
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#ED4245')
+                                .setTitle('❌ Servidor não encontrado')
+                                .setDescription('Não foi possível localizar o servidor dessa postagem. Inicie o processo novamente.')
+                                .setTimestamp()
+                        ]
+                    });
+                }
 
-                        if (post.mediaType === 'video' && post.attachmentUrl) {
-                            sendOptions.files = [post.attachmentUrl];
-                        }
-
-                        await targetChannel.send(sendOptions);
-
-                        updatePendingPost(post.id, {
-                            status: 'approved',
-                            approvedBy: interaction.user.id,
-                            approvedAt: new Date().toISOString()
-                        });
-
-                        const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                            .setColor('#57F287')
-                            .addFields({
-                                name: 'Status',
-                                value: `✅ Aprovado por ${interaction.user}`,
-                                inline: false
-                            });
-
-                        await interaction.update({
-                            embeds: [updatedEmbed],
-                            components: []
-                        });
-
-                        if (author) {
-                            await author.send(`✅ Sua postagem **"${post.title}"** foi aprovada e publicada.`).catch(() => null);
-                        }
-
-                        return;
-                    }
-
-                    updatePendingPost(post.id, {
-                        status: 'rejected',
-                        rejectedBy: interaction.user.id,
-                        rejectedAt: new Date().toISOString()
+                try {
+                    const postId = await sendPostToApproval({
+                        client: message.client,
+                        guild,
+                        author: message.author,
+                        title: session.title,
+                        mediaUrl,
+                        mediaType
                     });
 
-                    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                        .setColor('#ED4245')
-                        .addFields({
-                            name: 'Status',
-                            value: `❌ Recusado por ${interaction.user}`,
-                            inline: false
-                        });
+                    removeSession(message.author.id);
 
-                    await interaction.update({
-                        embeds: [updatedEmbed],
-                        components: []
+                    const successEmbed = new EmbedBuilder()
+                        .setColor('#57F287')
+                        .setTitle('✅ Postagem enviada para aprovação')
+                        .setDescription(
+                            [
+                                'Sua postagem foi enviada com sucesso para a equipe responsável.',
+                                '',
+                                'Assim que ela for analisada, você receberá uma resposta no privado.'
+                            ].join('\n')
+                        )
+                        .addFields(
+                            { name: 'Título', value: session.title || 'Sem título', inline: false },
+                            { name: 'ID da postagem', value: postId, inline: true },
+                            { name: 'Tipo de mídia', value: isImage(mediaType) ? 'Imagem' : 'Vídeo', inline: true }
+                        )
+                        .setTimestamp();
+
+                    return message.reply({ embeds: [successEmbed] });
+                } catch (error) {
+                    console.error('Erro ao enviar postagem para aprovação:', error);
+
+                    removeSession(message.author.id);
+
+                    return message.reply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor('#ED4245')
+                                .setTitle('❌ Erro ao enviar postagem')
+                                .setDescription(
+                                    'Não foi possível enviar sua postagem para aprovação.\n' +
+                                    'Verifique se o canal de aprovação foi configurado com `!verificarpost` e tente novamente.'
+                                )
+                                .setTimestamp()
+                        ]
                     });
-
-                    if (author) {
-                        await author.send(`❌ Sua postagem **"${post.title}"** foi recusada pela equipe.`).catch(() => null);
-                    }
-
-                    return;
                 }
             }
         } catch (error) {
-            console.error('[POST SYSTEM ERROR]', error);
+            console.error('Erro no sistema de postagens por DM:', error);
 
-            if (interaction.replied || interaction.deferred) {
-                return interaction.followUp({
-                    content: '❌ Ocorreu um erro ao processar essa ação.',
-                    ephemeral: true
-                }).catch(() => null);
-            }
-
-            return interaction.reply({
-                content: '❌ Ocorreu um erro ao processar essa ação.',
-                ephemeral: true
+            return message.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor('#ED4245')
+                        .setTitle('❌ Erro interno')
+                        .setDescription('Ocorreu um erro ao processar sua postagem. Tente novamente mais tarde.')
+                        .setTimestamp()
+                ]
             }).catch(() => null);
         }
     }
