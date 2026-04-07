@@ -51,6 +51,9 @@ if (fs.existsSync(eventsPath)) {
     const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
     let interactionCreateLoaded = false;
+    let antiSpamLoaded = false;
+    let postSystemLoaded = false;
+    let mensagemBuilderLoaded = false;
 
     eventFiles.forEach(file => {
         try {
@@ -61,6 +64,9 @@ if (fs.existsSync(eventsPath)) {
                 return;
             }
 
+            // ==========================================
+            // EVITA DUPLICIDADE EM interactionCreate
+            // ==========================================
             if (event.name === 'interactionCreate') {
                 if (file !== 'interactionCreate.js') {
                     console.log(`⏭️ Evento ignorado para evitar conflito: ${file}`);
@@ -73,6 +79,50 @@ if (fs.existsSync(eventsPath)) {
                 }
 
                 interactionCreateLoaded = true;
+            }
+
+            // ==========================================
+            // EVITA DUPLICIDADE EM messageCreate
+            // ==========================================
+            if (event.name === 'messageCreate') {
+                // Mantém só estes handlers de messageCreate:
+                // - antiSpam.js -> comandos + anti-spam
+                // - postSystem.js -> sistema de post por DM
+                // - mensagemBuilder.js -> sistema DM do !mensagem (se existir)
+                const allowedMessageCreateFiles = [
+                    'antiSpam.js',
+                    'postSystem.js',
+                    'mensagemBuilder.js'
+                ];
+
+                if (!allowedMessageCreateFiles.includes(file)) {
+                    console.log(`⏭️ messageCreate ignorado para evitar duplicidade: ${file}`);
+                    return;
+                }
+
+                if (file === 'antiSpam.js') {
+                    if (antiSpamLoaded) {
+                        console.log(`⏭️ antiSpam duplicado ignorado: ${file}`);
+                        return;
+                    }
+                    antiSpamLoaded = true;
+                }
+
+                if (file === 'postSystem.js') {
+                    if (postSystemLoaded) {
+                        console.log(`⏭️ postSystem duplicado ignorado: ${file}`);
+                        return;
+                    }
+                    postSystemLoaded = true;
+                }
+
+                if (file === 'mensagemBuilder.js') {
+                    if (mensagemBuilderLoaded) {
+                        console.log(`⏭️ mensagemBuilder duplicado ignorado: ${file}`);
+                        return;
+                    }
+                    mensagemBuilderLoaded = true;
+                }
             }
 
             if (event.once) {
