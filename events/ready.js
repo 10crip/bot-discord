@@ -1,6 +1,8 @@
 module.exports = {
-    name: 'clientReady',
+    name: 'ready',
+    once: true,
+
     execute(client) {
-        console.log(`Bot ligado como ${client.user.tag}`);
+        console.log(`✅ Bot online como ${client.user.tag}`);
     }
 };
