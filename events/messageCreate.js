@@ -2,7 +2,6 @@ require('dotenv').config();
 const fs = require('fs');
 const { EmbedBuilder } = require('discord.js');
 
-const CANAL_POSTAGEM_ID = '1490955877321146458';
 const CANAL_APROVACAO_ID = '1490959069811445821';
 
 module.exports = {
@@ -24,25 +23,36 @@ module.exports = {
             if (!sessao) return;
 
             if (sessao.etapa === 'titulo') {
-                sessao.titulo = message.content.trim();
+                const titulo = message.content.trim();
 
-                if (!sessao.titulo) {
-                    return message.reply('❌ Envie um título válido.');
+                if (!titulo) {
+                    return message.reply('❌ Envie um título válido para a postagem.');
                 }
 
-                sessao.etapa = 'imagem';
+                sessao.titulo = titulo;
+                sessao.etapa = 'midia';
+
                 fs.writeFileSync('./post_sessions.json', JSON.stringify(postSessions, null, 2));
 
                 return message.reply(
-                    '✅ Título salvo com sucesso.\n\nAgora envie a **imagem da postagem**.'
+                    '✅ Título salvo com sucesso.\n\n' +
+                    'Agora envie a **imagem ou vídeo** da postagem.'
                 );
             }
 
-            if (sessao.etapa === 'imagem') {
+            if (sessao.etapa === 'midia') {
                 const anexo = message.attachments.first();
 
-                if (!anexo || !anexo.contentType || !anexo.contentType.startsWith('image/')) {
-                    return message.reply('❌ Envie uma imagem válida para concluir sua postagem.');
+                if (!anexo) {
+                    return message.reply('❌ Envie uma imagem ou um vídeo para concluir sua postagem.');
+                }
+
+                const tipo = anexo.contentType || '';
+                const ehImagem = tipo.startsWith('image/');
+                const ehVideo = tipo.startsWith('video/');
+
+                if (!ehImagem && !ehVideo) {
+                    return message.reply('❌ O arquivo enviado precisa ser uma imagem ou um vídeo.');
                 }
 
                 try {
@@ -53,27 +63,46 @@ module.exports = {
                     pendingPosts[postId] = {
                         userId: message.author.id,
                         titulo: sessao.titulo,
-                        imagem: anexo.url,
+                        mediaUrl: anexo.url,
+                        mediaType: ehImagem ? 'image' : 'video',
                         criadoEm: Date.now()
                     };
 
                     fs.writeFileSync('./pending_posts.json', JSON.stringify(pendingPosts, null, 2));
+                    delete postSessions[message.author.id];
+                    fs.writeFileSync('./post_sessions.json', JSON.stringify(postSessions, null, 2));
 
                     const embed = new EmbedBuilder()
-                        .setTitle('📝 Nova postagem para aprovação')
-                        .setDescription('Uma nova postagem foi enviada e aguarda revisão da staff.')
+                        .setTitle('📝 Nova postagem aguardando aprovação')
+                        .setDescription(
+                            'Uma nova postagem foi enviada pela comunidade e está aguardando revisão da staff.'
+                        )
                         .addFields(
                             { name: 'Autor', value: `${message.author.tag}`, inline: true },
                             { name: 'ID do autor', value: `${message.author.id}`, inline: true },
+                            { name: 'Tipo de mídia', value: ehImagem ? 'Imagem' : 'Vídeo', inline: true },
                             { name: 'Título', value: sessao.titulo, inline: false }
                         )
-                        .setImage(anexo.url)
                         .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
                         .setColor('Yellow')
                         .setFooter({ text: `Post ID: ${postId}` })
                         .setTimestamp();
 
-                    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+                    if (ehImagem) {
+                        embed.setImage(anexo.url);
+                    } else {
+                        embed.addFields({
+                            name: 'Vídeo enviado',
+                            value: `[Clique aqui para abrir o vídeo](${anexo.url})`,
+                            inline: false
+                        });
+                    }
+
+                    const {
+                        ActionRowBuilder,
+                        ButtonBuilder,
+                        ButtonStyle
+                    } = require('discord.js');
 
                     const row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
@@ -91,14 +120,12 @@ module.exports = {
                         components: [row]
                     });
 
-                    delete postSessions[message.author.id];
-                    fs.writeFileSync('./post_sessions.json', JSON.stringify(postSessions, null, 2));
-
                     return message.reply(
-                        '✅ Sua postagem foi enviada para análise da staff.\n\nAssim que for aprovada ou recusada, você será avisado no privado.'
+                        '✅ Sua postagem foi enviada para análise da staff.\n\n' +
+                        'Assim que ela for aprovada ou recusada, você será avisado no privado.'
                     );
                 } catch (error) {
-                    console.error('Erro ao enviar para aprovação:', error);
+                    console.error('Erro ao enviar postagem para aprovação:', error);
                     return message.reply('❌ Ocorreu um erro ao enviar sua postagem para análise.');
                 }
             }
@@ -116,6 +143,8 @@ module.exports = {
         const cmd = args.shift().toLowerCase();
 
         const command = client.commands.get(cmd);
-        if (command) command.execute(message, args);
+        if (command) {
+            command.execute(message, args);
+        }
     }
 };
