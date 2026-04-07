@@ -19,26 +19,38 @@ const {
 } = require('../utils/messageBuilder');
 
 async function atualizarEditor(interaction, sessao) {
-    const msg = await interaction.channel.messages.fetch(sessao.editorMessageId).catch(() => null);
-    if (!msg) return;
+    try {
+        const msg = await interaction.channel.messages.fetch(sessao.editorMessageId).catch(() => null);
+        if (!msg) return;
 
-    const header = new EmbedBuilder()
-        .setColor('#5865F2')
-        .setTitle('🧩 Editor de Mensagens Premium')
-        .setDescription(
-            'Escolha um template e personalize sua mensagem.\n\n' +
-            'Finalize clicando em **Publicar**.'
-        )
-        .setFooter({ text: 'Editor de templates • via DM' })
-        .setTimestamp();
+        const header = new EmbedBuilder()
+            .setColor('#5865F2')
+            .setTitle('🧩 Editor de Mensagens Premium')
+            .setDescription(
+                'Escolha um template e edite sua mensagem usando os botões abaixo.\n\n' +
+                'Você pode definir:\n' +
+                '• título\n' +
+                '• texto\n' +
+                '• cor\n' +
+                '• foto principal\n' +
+                '• foto no canto direito superior\n' +
+                '• ícone do aviso\n' +
+                '• rodapé\n\n' +
+                'Quando terminar, clique em **Publicar**.'
+            )
+            .setFooter({ text: 'Editor de templates • via DM' })
+            .setTimestamp();
 
-    const preview = buildPreviewEmbed(sessao, interaction.user);
-    const rows = buildEditorRows(sessao);
+        const preview = buildPreviewEmbed(sessao, interaction.user);
+        const rows = buildEditorRows(sessao);
 
-    await msg.edit({
-        embeds: [header, preview],
-        components: rows
-    }).catch(() => {});
+        await msg.edit({
+            embeds: [header, preview],
+            components: rows
+        }).catch(() => {});
+    } catch (error) {
+        console.error('Erro ao atualizar editor:', error);
+    }
 }
 
 function criarModal(customId, title, label, value = '', required = false, placeholder = '') {
@@ -51,11 +63,49 @@ function criarModal(customId, title, label, value = '', required = false, placeh
         .setLabel(label)
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(required)
-        .setValue(String(value || '').slice(0, 4000))
         .setPlaceholder(placeholder);
 
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    const safeValue = String(value || '').trim();
+    if (safeValue.length > 0) {
+        input.setValue(safeValue.slice(0, 4000));
+    }
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(input)
+    );
+
     return modal;
+}
+
+async function responderTemporario(interaction, content, ms = 5000) {
+    try {
+        if (interaction.replied || interaction.deferred) {
+            const msg = await interaction.followUp({
+                content,
+                fetchReply: true
+            }).catch(() => null);
+
+            if (msg) {
+                setTimeout(() => {
+                    interaction.channel?.messages?.delete?.(msg.id).catch?.(() => {});
+                }, ms);
+            }
+            return;
+        }
+
+        const msg = await interaction.reply({
+            content,
+            fetchReply: true
+        }).catch(() => null);
+
+        if (msg) {
+            setTimeout(() => {
+                interaction.channel?.messages?.delete?.(msg.id).catch?.(() => {});
+            }, ms);
+        }
+    } catch (error) {
+        console.error('Erro ao responder temporariamente:', error);
+    }
 }
 
 module.exports = {
@@ -66,8 +116,7 @@ module.exports = {
             const sessions = getSessions();
             const sessao = sessions[interaction.user.id];
 
-            const builderIds = [
-                'mensagem_select_template',
+            const builderButtonIds = [
                 'mensagem_edit_titulo',
                 'mensagem_edit_texto',
                 'mensagem_edit_cor',
@@ -79,30 +128,35 @@ module.exports = {
                 'mensagem_cancelar'
             ];
 
-            const isBuilderModal = interaction.isModalSubmit() &&
-                interaction.customId.startsWith('mensagem_modal_');
-
-            const isBuilderButton = interaction.isButton() &&
-                builderIds.includes(interaction.customId);
-
-            const isBuilderSelect = interaction.isStringSelectMenu() &&
+            const isBuilderSelect =
+                interaction.isStringSelectMenu() &&
                 interaction.customId === 'mensagem_select_template';
 
-            if (!isBuilderModal && !isBuilderButton && !isBuilderSelect) return;
+            const isBuilderButton =
+                interaction.isButton() &&
+                builderButtonIds.includes(interaction.customId);
+
+            const isBuilderModal =
+                interaction.isModalSubmit() &&
+                interaction.customId.startsWith('mensagem_modal_');
+
+            if (!isBuilderSelect && !isBuilderButton && !isBuilderModal) return;
 
             if (!sessao) {
-                if (interaction.isRepliable()) {
-                    await interaction.reply({
-                        content: '❌ Sua sessão do editor expirou. Use `!mensagem` novamente.',
-                        ephemeral: true
-                    }).catch(() => {});
-                }
+                await responderTemporario(
+                    interaction,
+                    '❌ Sua sessão do editor expirou. Use `!mensagem` novamente.',
+                    6000
+                );
                 return;
             }
 
+            // =========================
             // SELECT DE TEMPLATE
+            // =========================
             if (isBuilderSelect) {
                 const selected = interaction.values[0];
+
                 aplicarTemplate(sessao, selected);
                 sessions[interaction.user.id] = sessao;
                 saveSessions(sessions);
@@ -112,10 +166,12 @@ module.exports = {
                 return;
             }
 
+            // =========================
             // BOTÕES
+            // =========================
             if (isBuilderButton) {
                 if (interaction.customId === 'mensagem_edit_titulo') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_titulo',
                             'Editar título',
@@ -125,10 +181,11 @@ module.exports = {
                             'Ex: 🚨 Aviso importante'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_texto') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_texto',
                             'Editar texto',
@@ -138,10 +195,11 @@ module.exports = {
                             'Escreva aqui o conteúdo principal'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_cor') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_cor',
                             'Editar cor',
@@ -151,10 +209,11 @@ module.exports = {
                             'Ex: #5865F2'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_footer') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_footer',
                             'Editar rodapé',
@@ -164,10 +223,11 @@ module.exports = {
                             'Ex: Aviso oficial'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_icone') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_icone',
                             'Editar ícone do aviso',
@@ -177,10 +237,11 @@ module.exports = {
                             'Deixe vazio para remover'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_imagem') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_imagem',
                             'Editar foto principal',
@@ -190,10 +251,11 @@ module.exports = {
                             'Deixe vazio para remover'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_edit_thumb') {
-                    return interaction.showModal(
+                    await interaction.showModal(
                         criarModal(
                             'mensagem_modal_thumb',
                             'Editar foto do canto direito',
@@ -203,38 +265,26 @@ module.exports = {
                             'Deixe vazio para remover'
                         )
                     );
+                    return;
                 }
 
                 if (interaction.customId === 'mensagem_publicar') {
                     const guild = await interaction.client.guilds.fetch(sessao.guildId).catch(() => null);
                     if (!guild) {
-                        return interaction.reply({
-                            content: '❌ Não encontrei o servidor de destino.',
-                            ephemeral: true
-                        });
+                        await responderTemporario(interaction, '❌ Não encontrei o servidor de destino.');
+                        return;
                     }
 
                     const channel = await guild.channels.fetch(sessao.targetChannelId).catch(() => null);
                     if (!channel || !channel.isTextBased()) {
-                        return interaction.reply({
-                            content: '❌ Não encontrei o canal de destino.',
-                            ephemeral: true
-                        });
+                        await responderTemporario(interaction, '❌ Não encontrei o canal de destino.');
+                        return;
                     }
 
                     const embed = buildPreviewEmbed(sessao, interaction.user);
-
                     await channel.send({ embeds: [embed] });
 
-                    const confirm = await interaction.reply({
-                        content: '✅ Mensagem publicada com sucesso no canal.',
-                        ephemeral: true,
-                        fetchReply: true
-                    });
-
-                    setTimeout(() => {
-                        interaction.webhook.deleteMessage(confirm.id).catch(() => {});
-                    }, 15000);
+                    await responderTemporario(interaction, '✅ Mensagem publicada com sucesso no canal.', 8000);
 
                     delete sessions[interaction.user.id];
                     saveSessions(sessions);
@@ -255,10 +305,7 @@ module.exports = {
                     delete sessions[interaction.user.id];
                     saveSessions(sessions);
 
-                    await interaction.reply({
-                        content: '❌ Editor cancelado.',
-                        ephemeral: true
-                    }).catch(() => {});
+                    await responderTemporario(interaction, '❌ Editor cancelado.', 5000);
 
                     const msg = await interaction.channel.messages.fetch(sessao.editorMessageId).catch(() => null);
                     if (msg) {
@@ -273,7 +320,9 @@ module.exports = {
                 }
             }
 
+            // =========================
             // MODAIS
+            // =========================
             if (isBuilderModal) {
                 const value = interaction.fields.getTextInputValue('value').trim();
 
@@ -287,10 +336,12 @@ module.exports = {
 
                 if (interaction.customId === 'mensagem_modal_cor') {
                     if (!isValidHexColor(value)) {
-                        return interaction.reply({
-                            content: '❌ Cor inválida. Use formato HEX, por exemplo: `#5865F2`.',
-                            ephemeral: true
-                        });
+                        await responderTemporario(
+                            interaction,
+                            '❌ Cor inválida. Use formato HEX, por exemplo: `#5865F2`.',
+                            7000
+                        );
+                        return;
                     }
 
                     sessao.color = normalizeHexColor(value);
@@ -301,33 +352,27 @@ module.exports = {
                 }
 
                 if (interaction.customId === 'mensagem_modal_icone') {
-                    if (!isValidUrl(value)) {
-                        return interaction.reply({
-                            content: '❌ URL inválida para o ícone.',
-                            ephemeral: true
-                        });
+                    if (value && !isValidUrl(value)) {
+                        await responderTemporario(interaction, '❌ URL inválida para o ícone.', 7000);
+                        return;
                     }
 
                     sessao.iconUrl = value;
                 }
 
                 if (interaction.customId === 'mensagem_modal_imagem') {
-                    if (!isValidUrl(value)) {
-                        return interaction.reply({
-                            content: '❌ URL inválida para a foto principal.',
-                            ephemeral: true
-                        });
+                    if (value && !isValidUrl(value)) {
+                        await responderTemporario(interaction, '❌ URL inválida para a foto principal.', 7000);
+                        return;
                     }
 
                     sessao.imageUrl = value;
                 }
 
                 if (interaction.customId === 'mensagem_modal_thumb') {
-                    if (!isValidUrl(value)) {
-                        return interaction.reply({
-                            content: '❌ URL inválida para a foto do canto direito.',
-                            ephemeral: true
-                        });
+                    if (value && !isValidUrl(value)) {
+                        await responderTemporario(interaction, '❌ URL inválida para a foto do canto direito.', 7000);
+                        return;
                     }
 
                     sessao.thumbnailUrl = value;
@@ -336,15 +381,7 @@ module.exports = {
                 sessions[interaction.user.id] = sessao;
                 saveSessions(sessions);
 
-                await interaction.reply({
-                    content: '✅ Template atualizado.',
-                    ephemeral: true
-                });
-
-                setTimeout(() => {
-                    interaction.deleteReply().catch(() => {});
-                }, 5000);
-
+                await responderTemporario(interaction, '✅ Template atualizado.', 4000);
                 await atualizarEditor(interaction, sessao);
                 return;
             }
@@ -353,8 +390,7 @@ module.exports = {
 
             if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({
-                    content: '❌ Ocorreu um erro ao processar o editor de mensagens.',
-                    ephemeral: true
+                    content: '❌ Ocorreu um erro ao processar o editor de mensagens.'
                 }).catch(() => {});
             }
         }
