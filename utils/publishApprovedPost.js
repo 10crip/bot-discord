@@ -5,7 +5,33 @@ const {
     ButtonStyle
 } = require('discord.js');
 
-const { createPostRecord } = require('./postInteractions');
+const { initPostRecord } = require('./postInteractions');
+
+function truncate(text, maxLength) {
+    const value = String(text || '').trim();
+    if (!value) return '';
+    if (value.length <= maxLength) return value;
+    return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function buildPostButtons(messageId, likesCount = 0, commentsCount = 0) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`post_like:${messageId}`)
+            .setLabel(`Curtir (${likesCount})`)
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId(`post_comment:${messageId}`)
+            .setLabel(`Comentar (${commentsCount})`)
+            .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+            .setCustomId(`post_view_comments:${messageId}`)
+            .setLabel('Ver comentários')
+            .setStyle(ButtonStyle.Secondary)
+    );
+}
 
 async function publishApprovedPost({
     channel,
@@ -14,18 +40,20 @@ async function publishApprovedPost({
     mediaType,
     author
 }) {
+    const authorName = author?.username || 'usuário';
+    const authorMention = author?.id ? `<@${author.id}>` : `@${authorName}`;
+    const safeTitle = truncate(title || 'Sem título', 256);
+
     const embed = new EmbedBuilder()
         .setColor('#5865F2')
-        .setTitle(title || 'Sem título')
-
-        // 👇 AQUI FICA O @ DO USUÁRIO (lado direito visual)
+        .setTitle(`✦ ${safeTitle}`)
         .setAuthor({
-            name: `@${author?.username || 'usuário'}`,
-            iconURL: author?.displayAvatarURL({ dynamic: true })
+            name: `@${authorName}`,
+            iconURL: author?.displayAvatarURL?.({ dynamic: true }) || null
         })
-
+        .setDescription(`Post de ${authorMention}`)
         .setFooter({
-            text: `Post enviado por ${author?.username || 'usuário'}`
+            text: `Post enviado por ${authorName}`
         })
         .setTimestamp();
 
@@ -33,33 +61,23 @@ async function publishApprovedPost({
         embed.setImage(mediaUrl);
     }
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('post_like_temp')
-            .setLabel('Curtir (0)')
-            .setStyle(ButtonStyle.Success),
-
-        new ButtonBuilder()
-            .setCustomId('post_comment_temp')
-            .setLabel('Comentar (0)')
-            .setStyle(ButtonStyle.Primary),
-
-        new ButtonBuilder()
-            .setCustomId('post_view_comments_temp')
-            .setLabel('Ver comentários')
-            .setStyle(ButtonStyle.Secondary)
-    );
+    if (mediaUrl && mediaType?.startsWith('video/')) {
+        embed.addFields({
+            name: '🎬 Mídia',
+            value: `[Clique aqui para assistir ao vídeo](${mediaUrl})`,
+            inline: false
+        });
+    }
 
     const sentMessage = await channel.send({
         embeds: [embed],
-        components: [row]
+        components: [buildPostButtons('temp')]
     });
 
-    // registra no sistema
-    await createPostRecord({
-        messageId: sentMessage.id,
-        channelId: channel.id,
-        authorId: author?.id
+    initPostRecord(sentMessage, author?.id || null);
+
+    await sentMessage.edit({
+        components: [buildPostButtons(sentMessage.id, 0, 0)]
     });
 
     return sentMessage;
