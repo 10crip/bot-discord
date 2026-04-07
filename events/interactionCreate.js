@@ -18,6 +18,8 @@ const {
     refreshPostButtons
 } = require('../utils/postInteractions');
 
+const TICKET_CATEGORY_ID = '1490905371601145939';
+
 module.exports = {
     name: 'interactionCreate',
 
@@ -43,8 +45,18 @@ module.exports = {
                             ? 'suporte'
                             : 'parceria';
 
+                    const category = interaction.guild.channels.cache.get(TICKET_CATEGORY_ID);
+
+                    if (!category || category.type !== ChannelType.GuildCategory) {
+                        return interaction.reply({
+                            content: '❌ A categoria configurada para os tickets não foi encontrada.',
+                            ephemeral: true
+                        });
+                    }
+
                     const existingChannel = interaction.guild.channels.cache.find(channel => {
                         if (channel.type !== ChannelType.GuildText) return false;
+                        if (channel.parentId !== TICKET_CATEGORY_ID) return false;
 
                         const hasUserPermission = channel.permissionOverwrites.cache.some(
                             overwrite =>
@@ -74,6 +86,7 @@ module.exports = {
                     const channel = await interaction.guild.channels.create({
                         name: channelName,
                         type: ChannelType.GuildText,
+                        parent: TICKET_CATEGORY_ID,
                         permissionOverwrites: [
                             {
                                 id: interaction.guild.roles.everyone.id,
@@ -119,7 +132,7 @@ module.exports = {
                     });
 
                     return interaction.reply({
-                        content: `✅ Seu ticket foi criado com sucesso: ${channel}`,
+                        content: `✅ Seu ticket foi criado com sucesso em ${channel}`,
                         ephemeral: true
                     });
                 }
