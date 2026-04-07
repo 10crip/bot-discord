@@ -188,7 +188,8 @@ module.exports = {
             try {
                 await interaction.user.send(
                     '📸 **Vamos criar sua postagem!**\n\n' +
-                    'Envie agora o **título da postagem**.'
+                    'Envie primeiro o **título da postagem**.\n\n' +
+                    'Depois eu vou pedir a **imagem ou vídeo**.'
                 );
 
                 return interaction.reply({
@@ -238,12 +239,24 @@ module.exports = {
                     })
                     .setTitle(post.titulo)
                     .setDescription('✨ **Nova postagem enviada pela comunidade**')
-                    .setImage(post.imagem)
                     .setColor('Purple')
                     .setFooter({ text: 'Postagem da comunidade' })
                     .setTimestamp();
 
-                await canalPostagem.send({ embeds: [embed] });
+                if (post.mediaType === 'image') {
+                    embed.setImage(post.mediaUrl);
+                    await canalPostagem.send({ embeds: [embed] });
+                } else {
+                    embed.addFields({
+                        name: '🎬 Vídeo da postagem',
+                        value: `[Clique aqui para assistir ao vídeo](${post.mediaUrl})`
+                    });
+
+                    await canalPostagem.send({
+                        embeds: [embed],
+                        files: [post.mediaUrl]
+                    });
+                }
 
                 await usuario.send(
                     '✅ Sua postagem foi **aprovada** pela staff e já foi publicada no servidor.'
