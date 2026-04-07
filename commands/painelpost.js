@@ -1,58 +1,45 @@
-const {
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    PermissionsBitField
+const { 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    EmbedBuilder 
 } = require('discord.js');
 
-const CANAL_POSTAGEM_ID = '1490955877321146458';
+require('dotenv').config();
 
 module.exports = {
     name: 'painelpost',
-    async execute(message) {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Você não tem permissão para enviar o painel de postagem.');
-        }
 
-        if (message.channel.id !== CANAL_POSTAGEM_ID) {
-            return message.reply(`❌ Use este comando no canal <#${CANAL_POSTAGEM_ID}>.`);
+    async execute(message) {
+
+        const cargoStaff = process.env.CARGO_STAFF;
+
+        // Verificar permissão
+        if (!message.member.roles.cache.has(cargoStaff)) {
+            return message.reply({
+                content: '❌ Você não tem permissão para usar este comando.'
+            });
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('📣 Central de Postagens da Comunidade')
+            .setTitle('📢 Sistema de Postagens')
             .setDescription(
-                '### Crie sua postagem de forma rápida e organizada\n' +
-                'Clique no botão abaixo para enviar sua publicação para análise da equipe.\n\n' +
-                '**O que você poderá enviar:**\n' +
-                '• título da postagem\n' +
-                '• imagem **ou** vídeo\n\n' +
-                '**Como funciona:**\n' +
-                '1. clique em **POSTING**\n' +
-                '2. o bot vai te chamar no privado\n' +
-                '3. envie o título\n' +
-                '4. envie a mídia\n' +
-                '5. a staff revisa antes de publicar\n\n' +
-                '✅ processo privado, organizado e seguro'
+                'Clique no botão abaixo para enviar uma postagem.\n\n' +
+                '📩 O bot irá te chamar no privado.'
             )
-            .setColor('Purple')
-            .setFooter({
-                text: 'As postagens passam por aprovação antes de serem publicadas.'
-            })
-            .setTimestamp();
+            .setColor('#5865F2')
+            .setFooter({ text: 'Sistema de Postagem com Aprovação' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('abrir_postagem')
+                .setCustomId('posting_iniciar')
                 .setLabel('POSTING')
-                .setStyle(ButtonStyle.Primary)
+                .setStyle(ButtonStyle.Success)
         );
 
         await message.channel.send({
             embeds: [embed],
             components: [row]
         });
-
-        await message.reply('✅ Painel de postagem enviado com sucesso.');
     }
 };
