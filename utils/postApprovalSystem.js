@@ -9,6 +9,8 @@ const {
 const { getPostApprovalChannel } = require('../guildConfig');
 const { publishApprovedPost } = require('./publishApprovedPost');
 
+const DEFAULT_APPROVAL_CHANNEL_ID = '1490959069811445821';
+
 const dataDir = path.join(__dirname, '..', 'data');
 const pendingPostsFile = path.join(dataDir, 'pending_posts.json');
 
@@ -56,7 +58,8 @@ async function sendPostToApproval({
     mediaUrl,
     mediaType
 }) {
-    const approvalChannelId = getPostApprovalChannel(guild.id);
+    const configuredApprovalChannelId = guild?.id ? getPostApprovalChannel(guild.id) : null;
+    const approvalChannelId = configuredApprovalChannelId || DEFAULT_APPROVAL_CHANNEL_ID;
 
     if (!approvalChannelId) {
         throw new Error('Canal de aprovação não configurado neste servidor.');
@@ -90,8 +93,18 @@ async function sendPostToApproval({
         .addFields(
             { name: 'Autor', value: `<@${author.id}>`, inline: true },
             { name: 'ID da postagem', value: postId, inline: true },
-            { name: 'Título', value: title || 'Sem título', inline: false }
+            { name: 'Título', value: title || 'Sem título', inline: false },
+            {
+                name: 'Tipo',
+                value: mediaType?.startsWith('image/')
+                    ? 'Imagem'
+                    : mediaType?.startsWith('video/')
+                        ? 'Vídeo'
+                        : 'Arquivo',
+                inline: true
+            }
         )
+        .setFooter({ text: `Post ID: ${postId}` })
         .setTimestamp();
 
     if (mediaUrl && mediaType?.startsWith('image/')) {
@@ -102,6 +115,7 @@ async function sendPostToApproval({
         new ButtonBuilder()
             .setCustomId(`approve_post:${postId}`)
             .setLabel('Aprovar')
+            .setEmoji('✅')
             .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
@@ -117,7 +131,6 @@ async function sendPostToApproval({
 
     if (mediaUrl && mediaType?.startsWith('video/')) {
         payload.content = `🎬 **Vídeo enviado:** ${mediaUrl}`;
-        payload.files = [mediaUrl];
     }
 
     await approvalChannel.send(payload);
