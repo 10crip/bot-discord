@@ -1,47 +1,79 @@
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
-const { addStaffRole, getStaffRoles } = require('../guildConfig');
+const {
+    EmbedBuilder,
+    PermissionsBitField
+} = require('discord.js');
+
+const {
+    setStaffRoles,
+    getStaffRoles
+} = require('../guildConfig');
 
 module.exports = {
     name: 'setadm',
+    description: 'Define os cargos da equipe que podem assumir e fechar tickets.',
 
     async execute(message, args) {
-        if (!message.guild) {
-            return message.reply('❌ Este comando só pode ser usado dentro de um servidor.');
-        }
+        try {
+            if (!message.guild) {
+                return message.reply('❌ Este comando só pode ser usado em servidor.');
+            }
 
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Apenas administradores podem configurar cargos de staff.');
-        }
+            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return message.reply('❌ Apenas administradores podem usar este comando.');
+            }
 
-        const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]);
+            const mentionedRoles = [...message.mentions.roles.values()];
 
-        if (!role) {
-            return message.reply('❌ Você precisa mencionar um cargo válido ou informar o ID do cargo.');
-        }
+            if (!mentionedRoles.length) {
+                const currentRoles = getStaffRoles(message.guild.id);
 
-        addStaffRole(message.guild.id, role.id);
+                const embed = new EmbedBuilder()
+                    .setColor('#FEE75C')
+                    .setTitle('⚙️ Configuração de cargos da equipe')
+                    .setDescription(
+                        'Use o comando mencionando um ou mais cargos.\n\n' +
+                        '**Exemplo:**\n' +
+                        '`!setadm @Staff @Moderador @Suporte`'
+                    )
+                    .addFields({
+                        name: 'Cargos configurados atualmente',
+                        value: currentRoles.length
+                            ? currentRoles.map(roleId => `<@&${roleId}>`).join('\n')
+                            : 'Nenhum cargo configurado.',
+                        inline: false
+                    })
+                    .setFooter({
+                        text: `${message.guild.name} • Sistema de equipe`
+                    })
+                    .setTimestamp();
 
-        const staffRoles = getStaffRoles(message.guild.id)
-            .map(roleId => {
-                const guildRole = message.guild.roles.cache.get(roleId);
-                return guildRole ? `<@&${guildRole.id}>` : `Cargo removido (${roleId})`;
-            })
-            .join('\n');
+                return message.reply({ embeds: [embed] });
+            }
 
-        const embed = new EmbedBuilder()
-            .setTitle('🛡️ Cargo de staff adicionado')
-            .setColor('#5865F2')
-            .setDescription(`O cargo ${role} agora possui permissão de **staff** neste servidor.`)
-            .addFields(
-                {
-                    name: 'Cargos com permissão',
-                    value: staffRoles || 'Nenhum cargo configurado.',
+            const roleIds = mentionedRoles.map(role => role.id);
+            setStaffRoles(message.guild.id, roleIds);
+
+            const embed = new EmbedBuilder()
+                .setColor('#57F287')
+                .setTitle('✅ Cargos da equipe atualizados')
+                .setDescription(
+                    'Os cargos abaixo agora fazem parte da equipe autorizada.\n\n' +
+                    'Membros com esses cargos poderão usar ações de staff, como assumir e fechar tickets.'
+                )
+                .addFields({
+                    name: 'Cargos definidos',
+                    value: mentionedRoles.map(role => `<@&${role.id}>`).join('\n'),
                     inline: false
-                }
-            )
-            .setFooter({ text: 'Sistema de Staff' })
-            .setTimestamp();
+                })
+                .setFooter({
+                    text: `${message.guild.name} • Configuração salva`
+                })
+                .setTimestamp();
 
-        await message.reply({ embeds: [embed] });
+            return message.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Erro no comando setadm:', error);
+            return message.reply('❌ Ocorreu um erro ao configurar os cargos da equipe.');
+        }
     }
 };
