@@ -39,13 +39,12 @@ async function updateCallCounter(client) {
 }
 
 module.exports = {
-    name: 'ready',
+    name: 'clientReady',
     once: true,
 
     async execute(client) {
         console.log(`✅ Bot online como ${client.user.tag}`);
 
-        // Espera o cache carregar corretamente
         setTimeout(async () => {
             await updateCallCounter(client);
         }, 2000);
