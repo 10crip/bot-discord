@@ -21,7 +21,10 @@ const {
   buildEditorComponents
 } = require("../utils/mensagemTemplates");
 
-const { gerarBannerMensagem } = require("../utils/bannerGenerator");
+const {
+  gerarBannerMensagem,
+  isCanvasAvailable
+} = require("../utils/bannerGenerator");
 
 function isMensagemInteraction(interaction) {
   if (interaction.isButton() && interaction.customId.startsWith("msg_")) return true;
@@ -34,12 +37,12 @@ function ensureUserSession(interaction) {
   const session = getSession(interaction.user.id);
 
   if (!session) {
-    if (interaction.replied || interaction.deferred) return null;
-
-    interaction.reply({
-      content: "❌ Sua sessão expirou. Use `!mensagem` novamente.",
-      ephemeral: true
-    }).catch(() => {});
+    if (!interaction.replied && !interaction.deferred) {
+      interaction.reply({
+        content: "❌ Sua sessão expirou. Use `!mensagem` novamente.",
+        ephemeral: true
+      }).catch(() => {});
+    }
     return null;
   }
 
@@ -110,6 +113,7 @@ module.exports = {
 
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId !== "msg_select_template") return;
+
       if (!isDmInteraction(interaction)) {
         return interaction.reply({
           content: "❌ Esse editor só pode ser usado na DM.",
@@ -278,10 +282,25 @@ module.exports = {
         const previewEmbed = buildPreviewEmbed(updated, interaction.user.tag);
 
         if (updated.usarImagem) {
+          if (!isCanvasAvailable()) {
+            return interaction.reply({
+              content: "⚠️ O modo imagem está indisponível neste deploy porque o módulo `canvas` não foi carregado. Você ainda pode usar o modo embed normalmente.",
+              embeds: [previewEmbed],
+              ephemeral: true
+            });
+          }
+
           try {
             await interaction.deferReply({ ephemeral: true });
 
             const buffer = await gerarBannerMensagem(updated);
+            if (!buffer) {
+              return interaction.editReply({
+                content: "⚠️ Não foi possível gerar a imagem neste ambiente.",
+                embeds: [previewEmbed]
+              });
+            }
+
             const attachment = new AttachmentBuilder(buffer, {
               name: "mensagem-preview.png"
             });
@@ -339,7 +358,32 @@ module.exports = {
           await interaction.deferReply({ ephemeral: true });
 
           if (updated.usarImagem) {
+            if (!isCanvasAvailable()) {
+              await channel.send({
+                embeds: [finalEmbed]
+              });
+
+              deleteSession(interaction.user.id);
+
+              return interaction.editReply({
+                content: "⚠️ O deploy não carregou o `canvas`, então publiquei a mensagem apenas como embed."
+              });
+            }
+
             const buffer = await gerarBannerMensagem(updated);
+
+            if (!buffer) {
+              await channel.send({
+                embeds: [finalEmbed]
+              });
+
+              deleteSession(interaction.user.id);
+
+              return interaction.editReply({
+                content: "⚠️ Não foi possível gerar a imagem neste ambiente, então publiquei apenas o embed."
+              });
+            }
+
             const attachment = new AttachmentBuilder(buffer, {
               name: "mensagem-final.png"
             });
@@ -396,7 +440,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           titulo: value || "Sem título"
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -404,7 +447,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           subtitulo: value || null
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -412,7 +454,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           texto: value || "Sem conteúdo."
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -427,7 +468,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           cor: value
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -442,7 +482,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           banner: value || null
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -457,7 +496,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           thumbnail: value || null
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
 
@@ -465,7 +503,6 @@ module.exports = {
         const updated = updateSession(interaction.user.id, {
           footer: value || "Sistema de Mensagens 2.1"
         });
-
         return replyWithUpdatedEditor(interaction, updated);
       }
     }
