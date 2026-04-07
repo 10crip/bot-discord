@@ -2,82 +2,84 @@ const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
     name: 'help',
+    aliases: ['ajuda'],
 
     async execute(message) {
         try {
             const embed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle('✨ Central Premium de Comandos')
+                .setTitle('📘 Central de Ajuda')
                 .setDescription(
-                    'Bem-vindo ao painel de ajuda do bot.\n\n' +
-                    'Aqui você encontra os principais comandos e recursos disponíveis no servidor.'
+                    'Aqui estão os comandos atualizados do bot.\n\n' +
+                    'Use os comandos exatamente como mostrados abaixo.'
                 )
                 .addFields(
                     {
-                        name: '🎫 Atendimento',
+                        name: '🛠️ Utilidade',
                         value:
-                            '**!painel**\n' +
-                            'Envia o painel premium de atendimento com as opções de **suporte** e **parceria**.',
+                            '`!help` — Mostra esta central de ajuda\n' +
+                            '`!ping` — Mostra a latência do bot\n' +
+                            '`!avatar [@usuário]` — Mostra o avatar de um usuário',
                         inline: false
                     },
                     {
-                        name: '📸 Postagens',
+                        name: '👮 Moderação',
                         value:
-                            '**!painelpost**\n' +
-                            'Envia o painel fixo para criação de postagens.\n\n' +
-                            '**!postar**\n' +
-                            'Inicia sua postagem diretamente por comando, ideal quando o painel fixo estiver longe no chat.',
+                            '`!clear <quantidade>` — Apaga mensagens do chat\n' +
+                            '`!kick @usuário [motivo]` — Expulsa um usuário\n' +
+                            '`!ban @usuário [motivo]` — Bane um usuário',
                         inline: false
                     },
                     {
-                        name: '🏆 Ranking',
+                        name: '🎫 Tickets',
                         value:
-                            '**!famosinho**\n' +
-                            'Mostra o ranking dos usuários que mais receberam likes nas postagens.',
+                            '`!painel` — Envia o painel de tickets com os botões de suporte e parceria\n' +
+                            '`!setadm add @cargo` — Adiciona cargo(s) à equipe\n' +
+                            '`!setadm remove @cargo` — Remove cargo(s) da equipe\n' +
+                            '`!setadm listar` — Lista os cargos atuais da equipe\n' +
+                            '`!setadm limpar` — Remove todos os cargos da equipe\n' +
+                            '`!setadm @cargo1 @cargo2` — Redefine todos os cargos da equipe',
                         inline: false
                     },
                     {
-                        name: '📘 Ajuda',
+                        name: '📝 Postagens',
                         value:
-                            '**!help**\n' +
-                            'Abre esta central premium com todos os comandos e sistemas atualizados.',
+                            '`!painelpost` — Envia o painel da central de postagens\n' +
+                            '`!postar` — Inicia a criação de postagem no privado\n' +
+                            '`!verificarpost` — Define o canal atual como canal de aprovação\n' +
+                            '`!famosinho` — Mostra o ranking dos usuários com mais likes',
                         inline: false
                     },
                     {
-                        name: '💬 Recursos Automáticos',
+                        name: '💬 Mensagens',
                         value:
-                            '• Sistema de tickets premium\n' +
-                            '• Confirmação de ticket com limpeza automática\n' +
-                            '• Postagens por DM com aprovação da staff\n' +
-                            '• Likes em postagens\n' +
-                            '• Comentários por botão\n' +
-                            '• Visualização de comentários\n' +
-                            '• Ranking de usuários mais curtidos\n' +
-                            '• Anti flood / anti spam automático',
+                            '`!mensagem` — Abre o editor profissional de mensagens em DM',
                         inline: false
                     },
                     {
-                        name: '🛡️ Proteções do Bot',
+                        name: '💰 Economia',
                         value:
-                            'O sistema anti-spam protege o servidor contra:\n\n' +
-                            '• Flood de mensagens\n' +
-                            '• Mensagens repetidas\n' +
-                            '• Spam de links\n' +
-                            '• Spam de emojis\n' +
-                            '• Spam de menções',
+                            '`!saldos` — Mostra informações de saldo',
+                        inline: false
+                    },
+                    {
+                        name: '📌 Observações',
+                        value:
+                            '• Algumas funções dependem de permissões da equipe.\n' +
+                            '• Tickets podem ser assumidos e fechados pela equipe configurada com `!setadm`.\n' +
+                            '• Postagens são enviadas no privado e passam por aprovação antes de serem publicadas.',
                         inline: false
                     }
                 )
-                .setThumbnail(message.guild?.iconURL({ dynamic: true }) || null)
                 .setFooter({
-                    text: `${message.guild?.name || 'Bot'} • Sistema Premium`
+                    text: `${message.guild?.name || 'Bot'} • Sistema de ajuda`
                 })
                 .setTimestamp();
 
-            await message.channel.send({ embeds: [embed] });
+            await message.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Erro no comando help:', error);
-            await message.reply('❌ Ocorreu um erro ao abrir a central de ajuda.');
+            await message.reply('❌ Ocorreu um erro ao exibir a central de ajuda.').catch(() => null);
         }
     }
 };
