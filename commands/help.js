@@ -26,3 +26,4 @@ module.exports = {
         message.reply({ embeds: [embed] });
     }
 };
+{ name: '!painelpost', value: 'Envia o painel de criação de postagem.', inline: false },
