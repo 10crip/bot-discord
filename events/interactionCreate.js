@@ -21,7 +21,7 @@ const {
 module.exports = {
     name: 'interactionCreate',
 
-    async execute(client, interaction) {
+    async execute(interaction) {
         try {
             // ==================================================
             // 🎫 TICKETS
@@ -77,9 +77,7 @@ module.exports = {
                         permissionOverwrites: [
                             {
                                 id: interaction.guild.roles.everyone.id,
-                                deny: [
-                                    PermissionsBitField.Flags.ViewChannel
-                                ]
+                                deny: [PermissionsBitField.Flags.ViewChannel]
                             },
                             {
                                 id: interaction.user.id,
@@ -359,13 +357,6 @@ module.exports = {
                     });
                 }
             }
-
-            // ==================================================
-            // 📨 BLOCO RESERVADO PARA O SISTEMA !MENSAGEM
-            // ==================================================
-            // A lógica do builder de mensagem não foi enviada completa.
-            // Quando você mandar os arquivos restantes do sistema de mensagem,
-            // eu te devolvo este mesmo arquivo já com essa parte encaixada.
         } catch (error) {
             console.error('Erro no interactionCreate:', error);
 
